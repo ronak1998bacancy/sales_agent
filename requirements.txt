@@ -1,14 +1,13 @@
-fastapi==0.116.1
 google_api_python_client==2.176.0
 google_auth_oauthlib==1.2.2
 Jinja2==3.1.6
-langgraph==0.5.3
 openai==1.97.0
 pdfkit==1.0.0
 protobuf==6.31.1
 pydantic==2.11.7
 python-dotenv==1.1.1
+python_dateutil==2.9.0.post0
+pytz==2025.2
 Requests==2.32.4
 selenium==4.34.2
-uvicorn==0.35.0
 webdriver_manager==4.0.2
