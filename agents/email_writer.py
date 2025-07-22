@@ -6,6 +6,13 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import datetime
+from google import genai
+import re  # Added for regex parsing
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -23,11 +30,12 @@ class EmailWriterAgent:
     output_schema = {"leads": List[Dict]}  # Update same leads list
 
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
     async def run(self, state):
         print(f"[{datetime.datetime.now()}] Starting email_writer")
-        leads = state["leads"]
+        leads = state.get("leads", [])
         org_name = state.get("organization_name", "Your Company")
         user_name = state.get("user_name", "Sales Team")
         company_email = state.get("company_email", "sales@company.com")
@@ -66,27 +74,33 @@ class EmailWriterAgent:
             
             CTA: [Your call to action here]
             """
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            email_content = response.choices[0].message.content
             try:
-                subject = email_content.split("Subject:")[1].split("Body:")[0].strip()
-                body = email_content.split("Body:")[1].split("CTA:")[0].strip()
-                cta = email_content.split("CTA:")[1].strip()
-            except IndexError:
-                lines = email_content.split("\n")
-                subject = lines[0].strip() if lines else "Default Subject"
-                body = "\n".join(lines[1:-1]).strip() if len(lines) > 1 else "Default Body"
-                cta = lines[-1].strip() if len(lines) > 1 else "Default CTA"
+                response = self.client.models.generate_content(
+                    model="gemini-2.5-flash", contents=prompt
+                )
+                email_content = response.text
+            except Exception as e:
+                logger.error(f"Error generating email with AI: {e}", exc_info=True)
+                email_content = ""
+
+            # Improved parsing with regex to handle variations
+            subject_match = re.search(r'Subject:\s*(.*?)(\n\nBody:|$)', email_content, re.DOTALL)
+            body_match = re.search(r'Body:\s*(.*?)(\n\nCTA:|$)', email_content, re.DOTALL)
+            cta_match = re.search(r'CTA:\s*(.*)', email_content, re.DOTALL)
+            
+            subject = subject_match.group(1).strip() if subject_match else "Default Subject"
+            body = body_match.group(1).strip() if body_match else "Default Body"
+            cta = cta_match.group(1).strip() if cta_match else "Default CTA"
             
             lead["email_draft"] = {
                 "subject": subject,
                 "body": body,
                 "cta": cta
             }
-            with open(f"outputs/emails/{lead.get('profile_url', 'unknown').replace('/', '_')}.json", "w") as f:
-                json.dump(lead["email_draft"], f, indent=2)
+            try:
+                with open(f"outputs/emails/{lead.get('profile_url', 'unknown').replace('/', '_')}.json", "w") as f:
+                    json.dump(lead["email_draft"], f, indent=2)
+            except Exception as e:
+                logger.error(f"Error saving email draft: {e}", exc_info=True)
         print(f"[{datetime.datetime.now()}] Completed email_writer: Emails generated for {len(leads)} leads")
         return {"leads": leads}

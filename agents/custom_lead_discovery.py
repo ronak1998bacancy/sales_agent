@@ -11,7 +11,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from dotenv import load_dotenv
-import os
+import os, random
 import datetime
 import logging
 from typing import Dict, List
@@ -45,7 +45,7 @@ class LinkedInScraper:
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--allow-running-insecure-content")
         
-        # Uncomment the next line if you want to run in headless mode
+        # Enable headless mode
         # chrome_options.add_argument("--headless=new")
         
         try:
@@ -58,7 +58,7 @@ class LinkedInScraper:
             
             return driver
         except Exception as e:
-            logger.debug(f"Error setting up driver: {e}")
+            logger.error(f"Error setting up driver: {e}")  # Changed to error level
             return None
 
     def safe_find_element(self, driver, by, value, timeout=10):
@@ -269,6 +269,7 @@ class LinkedInScraper:
         try:
             logger.debug(f"Navigating to profile: {profile_url}")
             driver.get(profile_url)
+            time.sleep(random.uniform(1, 3))  # Added delay
 
             # Wait until the profile name or any known element appears
             WebDriverWait(driver, 10).until(
@@ -277,154 +278,155 @@ class LinkedInScraper:
                     "h1.text-heading-xlarge, .pv-text-details__left-panel h1, .text-heading-xlarge, h1"
                 ))
             )
-
-            profile_data = {
-                "profile_url": profile_url,
-                "name": None,
-                "company": None,
-                "role": None,
-                "company_url": None,
-                "company_website": None,
-                "location": None,
-                "source": "LinkedIn"
-            }
-
-            # Extract name from profile page
-            name_selectors = [ 
-                "h1"
-            ]
-            for selector in name_selectors:
-                name_element = self.safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=5)
-                if name_element:
-                    name_text = self.clean_name(name_element.text)
-                    if name_text:
-                        profile_data["name"] = name_text
-                        logger.debug(f"Found name: {name_text} with {selector} seectore")
-                        break
-            
-            # Scroll and wait for experience section
-            driver.execute_script("window.scrollTo(0, 800);")
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "li.artdeco-list__item"))
-            )
-
-            experience_list_selectors = [ 
-                "li.artdeco-list__item"
-            ]
-
-            experience_entries = []
-            for selector in experience_list_selectors:
-                entries = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=5)
-                if entries:
-                    valid_entries = [e for e in entries if e.find_elements(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")]
-                    if valid_entries:
-                        experience_entries = valid_entries
-                        logger.debug(f"Found {len(valid_entries)} experience entries with selector: {selector}")
-                        break
-                            
-            if experience_entries:
-                first_entry = experience_entries[0]
-                logger.debug("Processing first experience entry...")
-
-                sub_components = first_entry.find_elements(By.CSS_SELECTOR, ".pvs-entity__sub-components")
-                is_single_company = bool(sub_components)
-
-                if is_single_company:
-                    logger.debug("Detected single company with sub-positions structure")
-                    
-                    company_elements = first_entry.find_elements(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.hoverable-link-text.t-bold span[aria-hidden='true']")
-                    if company_elements:
-                        company_name = company_elements[0].text.strip()
-                        if company_name and len(company_name) > 1:
-                            profile_data["company"] = company_name
-                            logger.debug(f"Found company: {company_name}")
-
-                    company_links = first_entry.find_elements(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")
-                    if company_links:
-                        company_url = company_links[0].get_attribute("href").split('?')[0]
-                        if "/company/" in company_url:
-                            profile_data["company_url"] = company_url
-                            logger.debug(f"Found company URL: {company_url}")
-                        elif "search/results/all" in company_url:
-                            if profile_data.get("company"):
-                                logger.debug(f"Company URL is a search link, searching for company: {profile_data['company']}")
-                                company_info = self.search_company_website(driver, profile_data["company"])
-                                if company_info.get("company_url"):
-                                    profile_data["company_url"] = company_info["company_url"]
-                                    logger.debug(f"Found company URL via search: {profile_data['company_url']}")
-
-                    sub_position_elements = first_entry.find_elements(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.t-bold span[aria-hidden='true']")
-                    if sub_position_elements:
-                        position = sub_position_elements[0].text.strip()
-                        if position and len(position) > 1:
-                            profile_data["role"] = position
-                            logger.debug(f"Found position: {position}")
-                else:
-                    logger.debug("Detected multiple companies structure")
-                    
-                    position_elements = first_entry.find_elements(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.t-bold span[aria-hidden='true']")
-                    if position_elements:
-                        position = position_elements[0].text.strip()
-                        if position and len(position) > 1:
-                            profile_data["role"] = position
-                            logger.debug(f"Found position: {position}")
-
-                    company_name_elements = first_entry.find_elements(By.CSS_SELECTOR, ".t-14.t-normal span[aria-hidden='true']")
-                    for element in company_name_elements:
-                        text = element.text.strip()
-                        company_name = text.split("·")[0].strip()
-                        if company_name and len(company_name) > 1 and company_name != "Present":
-                            profile_data["company"] = company_name
-                            logger.debug(f"Found company: {company_name}")
-                            break
-
-                    company_links = first_entry.find_elements(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")
-                    if company_links:
-                        company_url = company_links[0].get_attribute("href").split('?')[0]
-                        if "/company/" in company_url:
-                            profile_data["company_url"] = company_url
-                            logger.debug(f"Found company URL: {company_url}")
-                        elif "search/results/all" in company_url:
-                            if profile_data.get("company"):
-                                logger.debug(f"Company URL is a search link, searching for company: {profile_data['company']}")
-                                company_info = self.search_company_website(driver, profile_data["company"])
-                                if company_info.get("company_url"):
-                                    profile_data["company_url"] = company_info["company_url"]
-                                    logger.debug(f"Found company URL via search: {profile_data['company_url']}")
-
-            # Extract location
-            location_selectors = [
-                ".text-body-small.inline.t-black--light.break-words",
-                ".pv-text-details__left-panel .text-body-small",
-                ".text-body-small"
-            ]
-            for selector in location_selectors:
-                location_element = self.safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=3)
-                if location_element:
-                    location_text = location_element.text.strip()
-                    if location_text and "connection" not in location_text.lower() and len(location_text) < 100:
-                        profile_data["location"] = location_text
-                        logger.debug(f"Found location: {location_text}")
-                        break
-            
-            # Company page navigation + dynamic wait
-            if profile_data.get("company_url"):
-                logger.debug(f"Navigating to company page: {profile_data['company_url']}")
-                driver.get(profile_data["company_url"])
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "a[href^='http']"))
-                )
-                website_info = self.extract_company_website(driver)
-                if website_info.get("company_website"):
-                    profile_data["company_website"] = website_info["company_website"]
-                    logger.debug(f"Found company website: {profile_data['company_website']}")
-
-            return profile_data
-
+        except TimeoutException as e:
+            logger.error(f"Timeout loading profile: {e}")
+            return {"profile_url": profile_url}
         except Exception as e:
-            logger.debug(f"Error extracting profile data: {e}")
+            logger.error(f"Error navigating to profile: {e}")
             return {"profile_url": profile_url}
 
+        profile_data = {
+            "profile_url": profile_url,
+            "name": None,
+            "company": None,
+            "role": None,
+            "company_url": None,
+            "company_website": None,
+            "location": None,
+            "source": "LinkedIn"
+        }
+
+        # Extract name from profile page
+        name_selectors = [ 
+            "h1"
+        ]
+        for selector in name_selectors:
+            name_element = self.safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=5)
+            if name_element:
+                name_text = self.clean_name(name_element.text)
+                if name_text:
+                    profile_data["name"] = name_text
+                    logger.debug(f"Found name: {name_text} with {selector} seectore")
+                    break
+        
+        # Scroll and wait for experience section
+        driver.execute_script("window.scrollTo(0, 800);")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "li.artdeco-list__item"))
+        )
+
+        experience_list_selectors = [ 
+            "li.artdeco-list__item"
+        ]
+
+        experience_entries = []
+        for selector in experience_list_selectors:
+            entries = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=5)
+            if entries:
+                valid_entries = [e for e in entries if e.find_elements(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")]
+                if valid_entries:
+                    experience_entries = valid_entries
+                    logger.debug(f"Found {len(valid_entries)} experience entries with selector: {selector}")
+                    break
+                        
+        if experience_entries:
+            first_entry = experience_entries[0]
+            logger.debug("Processing first experience entry...")
+
+            sub_components = first_entry.find_elements(By.CSS_SELECTOR, ".pvs-entity__sub-components")
+            is_single_company = bool(sub_components)
+
+            if is_single_company:
+                logger.debug("Detected single company with sub-positions structure")
+                
+                company_elements = first_entry.find_elements(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.hoverable-link-text.t-bold span[aria-hidden='true']")
+                if company_elements:
+                    company_name = company_elements[0].text.strip()
+                    if company_name and len(company_name) > 1:
+                        profile_data["company"] = company_name
+                        logger.debug(f"Found company: {company_name}")
+
+                company_links = first_entry.find_elements(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")
+                if company_links:
+                    company_url = company_links[0].get_attribute("href").split('?')[0]
+                    if "/company/" in company_url:
+                        profile_data["company_url"] = company_url
+                        logger.debug(f"Found company URL: {company_url}")
+                    elif "search/results/all" in company_url:
+                        if profile_data.get("company"):
+                            logger.debug(f"Company URL is a search link, searching for company: {profile_data['company']}")
+                            company_info = self.search_company_website(driver, profile_data["company"])
+                            if company_info.get("company_url"):
+                                profile_data["company_url"] = company_info["company_url"]
+                                logger.debug(f"Found company URL via search: {profile_data['company_url']}")
+
+                sub_position_elements = first_entry.find_elements(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.t-bold span[aria-hidden='true']")
+                if sub_position_elements:
+                    position = sub_position_elements[0].text.strip()
+                    if position and len(position) > 1:
+                        profile_data["role"] = position
+                        logger.debug(f"Found position: {position}")
+            else:
+                logger.debug("Detected multiple companies structure")
+                
+                position_elements = first_entry.find_elements(By.CSS_SELECTOR, ".display-flex.align-items-center.mr1.t-bold span[aria-hidden='true']")
+                if position_elements:
+                    position = position_elements[0].text.strip()
+                    if position and len(position) > 1:
+                        profile_data["role"] = position
+                        logger.debug(f"Found position: {position}")
+
+                company_name_elements = first_entry.find_elements(By.CSS_SELECTOR, ".t-14.t-normal span[aria-hidden='true']")
+                for element in company_name_elements:
+                    text = element.text.strip()
+                    company_name = text.split("·")[0].strip()
+                    if company_name and len(company_name) > 1 and company_name != "Present":
+                        profile_data["company"] = company_name
+                        logger.debug(f"Found company: {company_name}")
+                        break
+
+                company_links = first_entry.find_elements(By.CSS_SELECTOR, "a[data-field='experience_company_logo']")
+                if company_links:
+                    company_url = company_links[0].get_attribute("href").split('?')[0]
+                    if "/company/" in company_url:
+                        profile_data["company_url"] = company_url
+                        logger.debug(f"Found company URL: {company_url}")
+                    elif "search/results/all" in company_url:
+                        if profile_data.get("company"):
+                            logger.debug(f"Company URL is a search link, searching for company: {profile_data['company']}")
+                            company_info = self.search_company_website(driver, profile_data["company"])
+                            if company_info.get("company_url"):
+                                profile_data["company_url"] = company_info["company_url"]
+                                logger.debug(f"Found company URL via search: {profile_data['company_url']}")
+
+        # Extract location
+        location_selectors = [
+            ".text-body-small.inline.t-black--light.break-words",
+            ".pv-text-details__left-panel .text-body-small",
+            ".text-body-small"
+        ]
+        for selector in location_selectors:
+            location_element = self.safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=3)
+            if location_element:
+                location_text = location_element.text.strip()
+                if location_text and "connection" not in location_text.lower() and len(location_text) < 100:
+                    profile_data["location"] = location_text
+                    logger.debug(f"Found location: {location_text}")
+                    break
+        
+        # Company page navigation + dynamic wait
+        if profile_data.get("company_url"):
+            logger.debug(f"Navigating to company page: {profile_data['company_url']}")
+            driver.get(profile_data["company_url"])
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "a[href^='http']"))
+            )
+            website_info = self.extract_company_website(driver)
+            if website_info.get("company_website"):
+                profile_data["company_website"] = website_info["company_website"]
+                logger.debug(f"Found company website: {profile_data['company_website']}")
+
+        return profile_data
 
     def extract_company_website(self, driver):
         """Extract company website from company page"""
@@ -767,8 +769,9 @@ class LinkedInScraper:
             # If no results found, try scrolling and waiting
             if not search_results:
                 logger.debug("No results found, trying to scroll and wait...")
-                driver.execute_script("window.scrollTo(0, 1000);")
                 try:
+                    driver.execute_script("window.scrollTo(0, 1000);")
+                    time.sleep(random.uniform(2, 5))  # Added random delay
                     WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, ".search-results-container li, .reusable-search__result-container"))
                     )
@@ -781,7 +784,8 @@ class LinkedInScraper:
                         if search_results and len(search_results) > 0:
                             logger.debug(f"Found {len(search_results)} results after scroll using selector: {selector}")
                             break
-                    except:
+                    except Exception as e:
+                        logger.error(f"Error finding elements: {e}")
                         continue
             
             if not search_results:
@@ -902,7 +906,7 @@ class CustomLeadDiscoveryAgent:
         LINKEDIN_EMAIL = os.getenv("LINKEDIN_EMAIL")
         LINKEDIN_PASSWORD = os.getenv("LINKEDIN_PASSWORD")
         SEARCH_QUERY = state.get("search_query", "CTO")  # Default to CTO
-        NUM_PROFILES = state.get("num_profiles", 3)
+        NUM_PROFILES = state.get("num_profiles", 2)
 
         scraper = LinkedInScraper(
             email=LINKEDIN_EMAIL,

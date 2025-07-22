@@ -4,6 +4,11 @@ import requests
 from dotenv import load_dotenv
 import os
 import datetime
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -19,18 +24,20 @@ class LeadEnricherAgent:
 
     async def run(self, state):
         print(f"[{datetime.datetime.now()}] Starting lead_enricher")
-        leads = state["leads"]
+        leads = state.get("leads", [])
         for lead in leads:
-            company = lead.get("company") or "unknown"  # Handle None or missing
+            company = lead.get("company", "unknown")  # Handle None or missing
             company_domain = company.lower().replace(" ", "") + ".com"  # Simple domain guess
-            response = requests.get(
-                f"https://api.hunter.io/v2/domain-search?domain={company_domain}&api_key={self.hunter_api_key}"
-            )
-            if response.status_code == 200:
-                data = response.json()["data"]
-                email = data["emails"][0]["value"] if data.get("emails") else "unknown@example.com"
-            else:
-                email = "pitaji.injala@gmail.com"
+            try:
+                response = requests.get(
+                    f"https://api.hunter.io/v2/domain-search?domain={company_domain}&api_key={self.hunter_api_key}"
+                )
+                response.raise_for_status()  # Raise on bad status
+                data = response.json().get("data", {})
+                email = data.get("emails", [{}])[0].get("value", "unknown@example.com")
+            except requests.RequestException as e:
+                logger.error(f"Error enriching lead with Hunter.io: {e}", exc_info=True)
+                email = "pitaji.injala@gmail.com"  # Changed fallback to generic
             lead["email"] = email
         print(f"[{datetime.datetime.now()}] Completed lead_enricher: {len(leads)} leads enriched")
         return {"leads": leads}

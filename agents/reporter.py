@@ -6,6 +6,11 @@ from dotenv import load_dotenv
 import os
 import datetime
 import json
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -20,7 +25,7 @@ class ReporterAgent:
         print(f"[{datetime.datetime.now()}] Starting reporter")
         organization_name = state.get("organization_name", "Your Organization")
         user_name = state.get("user_name", "Sales Team")
-        leads = state["leads"]
+        leads = state.get("leads", [])
         summary = f"""
         Daily Sales Report for {organization_name}:
         - Leads Discovered: {len(leads)}
@@ -32,10 +37,14 @@ class ReporterAgent:
         msg["From"] = f"{user_name} <sales@{organization_name.lower().replace(' ', '')}.com>"
         msg["To"] = "team@example.com"
         
-        with smtplib.SMTP(os.getenv("SMTP_HOST"), 587) as server:
-            server.starttls()
-            server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
-            server.send_message(msg)
+        try:
+            with smtplib.SMTP(os.getenv("SMTP_HOST"), 587) as server:
+                server.starttls()
+                server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
+                server.send_message(msg)
+            logger.info("Summary email sent successfully")
+        except Exception as e:
+            logger.error(f"Error sending summary email: {e}", exc_info=True)
         
         # Central JSON already dumped in main.py, but log here
         print(f"[{datetime.datetime.now()}] Completed reporter: Summary sent")
