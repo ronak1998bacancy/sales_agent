@@ -15,6 +15,8 @@ import os, random
 import datetime
 import logging
 from typing import Dict, List
+import random
+from autoprofile_login import profile_login
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -826,15 +828,15 @@ class LinkedInScraper:
         
     def main(self):
         """Main function to run the scraper"""
-        driver = self.setup_driver()
+        driver = profile_login()
         if not driver:
             logger.debug("Failed to set up driver")
             return []
         
-        try:
-            if not self.login_to_linkedin(driver):
-                logger.debug("Login failed. Exiting...")
-                return []
+        try:  
+            # if not self.login_to_linkedin(driver):
+                # logger.debug("Login failed. Exiting...")
+                # return []
             
             # Get profile URLs from search results
             start = time.time()
@@ -918,3 +920,18 @@ class CustomLeadDiscoveryAgent:
         # User's code goes here to populate 'leads' if needed; results is the list
         logger.debug(f"[{datetime.datetime.now()}] Completed custom_lead_discovery: {len(results)} leads found")
         return {"leads": results}
+    
+        
+# if __name__ == "__main__":
+#     # For testing purposes
+#     import asyncio
+#     state = {
+#         "search_query": "CTO",
+#         "num_profiles": 20
+#     }
+#     agent = CustomLeadDiscoveryAgent()
+#     loop = asyncio.get_event_loop()
+#     start = time.time()
+#     results = loop.run_until_complete(agent.run(state))
+#     end = time.time()
+#     print(f"Time taken: {end - start} seconds")
