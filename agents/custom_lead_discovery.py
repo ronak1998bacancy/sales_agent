@@ -16,7 +16,7 @@ import datetime
 import logging
 from typing import Dict, List
 import random
-from autoprofile_login import profile_login
+from agents.autoprofile_login import profile_login
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
