@@ -16,7 +16,7 @@ def is_port_in_use(port):
     """Check if a specific port is already in use"""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1)
+            s.settimeout(0.5)  # Reduced timeout for faster port checking
             result = s.connect_ex(('localhost', port))
             return result == 0
     except Exception:
@@ -58,11 +58,10 @@ def close_profile_specific_chrome(target_profile="Profile 1"):
             for pid in all_processes_to_close:
                 try:
                     os.kill(pid, signal.SIGTERM)
-                    print(f"   Gracefully terminating PID {pid}")
                 except (OSError, ProcessLookupError):
                     pass
             
-            time.sleep(4)
+            time.sleep(1.5)  # Reduced from 4 seconds
             
             # Force kill any remaining processes
             for pid in all_processes_to_close:
@@ -70,7 +69,6 @@ def close_profile_specific_chrome(target_profile="Profile 1"):
                     process = psutil.Process(pid)
                     if process.is_running():
                         os.kill(pid, signal.SIGKILL)
-                        print(f"   Force killed PID {pid}")
                 except (OSError, ProcessLookupError, psutil.NoSuchProcess):
                     pass
             
@@ -78,15 +76,15 @@ def close_profile_specific_chrome(target_profile="Profile 1"):
         else:
             print(f"✅ No Chrome processes found for {target_profile}")
             
-        # Wait for ports to be fully released
-        time.sleep(3)
+        # Reduced wait time for ports to be released
+        time.sleep(1)
         
     except Exception as e:
         print(f"⚠️ Error closing Chrome profile processes: {e}")
 
 def find_available_debug_port(start_port=9224):
     """Find an available port for Chrome debugging"""
-    for port in range(start_port, start_port + 20):
+    for port in range(start_port, start_port + 10):  # Reduced range for faster checking
         if not is_port_in_use(port):
             print(f"✅ Found available debug port: {port}")
             return port
@@ -94,12 +92,11 @@ def find_available_debug_port(start_port=9224):
     return None
 
 def start_chrome_with_specific_profile(profile_dir="Profile 1"):
-    """Start Chrome with the specific profile"""
+    """Start Chrome with the specific profile - OPTIMIZED FOR SPEED"""
     print(f"🚀 Starting Chrome with {profile_dir} profile...")
 
     # Default Chrome user data directory
     user_data_dir = os.path.expanduser("~/.config/google-chrome")
-    print(f"User data dir: {user_data_dir}")
     
     # Verify profile exists
     profile_path = os.path.join(user_data_dir, profile_dir)
@@ -112,22 +109,37 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
     if not debug_port:
         return None, None
     
-    # Create a temporary user data directory to avoid conflicts
+    # Create a lightweight temporary user data directory
     temp_user_data = f"{user_data_dir}_temp_{profile_dir.replace(' ', '_')}"
     
-    # Copy the profile to temp location
+    # Quick copy of essential profile data only
     import shutil
     if os.path.exists(temp_user_data):
         shutil.rmtree(temp_user_data)
     
     os.makedirs(temp_user_data, exist_ok=True)
     
-    # Copy the specific profile
+    # Copy only essential files for faster startup
     temp_profile_path = os.path.join(temp_user_data, profile_dir)
-    if os.path.exists(profile_path):
-        shutil.copytree(profile_path, temp_profile_path)
-        print(f"✅ Copied profile to temporary location: {temp_profile_path}")
+    os.makedirs(temp_profile_path, exist_ok=True)
     
+    # Copy only critical files for authentication
+    essential_files = ['Preferences', 'Local State', 'Cookies', 'Login Data', 'Web Data']
+    for file_name in essential_files:
+        src_file = os.path.join(profile_path, file_name)
+        dst_file = os.path.join(temp_profile_path, file_name)
+        if os.path.exists(src_file):
+            try:
+                if os.path.isfile(src_file):
+                    shutil.copy2(src_file, dst_file)
+                else:
+                    shutil.copytree(src_file, dst_file)
+            except Exception as e:
+                print(f"   Warning: Could not copy {file_name}: {e}")
+    
+    print(f"✅ Copied essential profile files to temporary location")
+    
+    # Optimized Chrome flags for speed
     chrome_command = [
         'google-chrome-stable',
         f'--remote-debugging-port={debug_port}',
@@ -140,14 +152,27 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
         '--disable-features=VizDisplayCompositor',
         '--disable-extensions',
         '--no-first-run',
-        '--new-window',  # Force new window
+        '--new-window',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
+        '--disable-renderer-backgrounding',
+        '--disable-background-networking',
+        '--disable-background-sync',
+        '--disable-client-side-phishing-detection',
+        '--disable-default-apps',
+        '--disable-hang-monitor',
+        '--disable-popup-blocking',
+        '--disable-prompt-on-repost',
+        '--disable-sync',
+        '--disable-translate',
+        '--disable-plugins-discovery',
+        '--disable-preconnect',
+        '--no-default-browser-check',
+        '--no-pings',
+        '--aggressive-cache-discard',  # For faster loading
+        '--memory-pressure-off',
+        '--fast-start'  # Enable fast startup
     ]
-
-    print("Command being executed:")
-    print(" ".join(chrome_command))
 
     try:
         # Start Chrome in background
@@ -159,8 +184,8 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
         )
         print(f"✅ Chrome started with profile '{profile_dir}' on port {debug_port} - PID: {process.pid}")
         
-        # Wait for Chrome to fully start
-        time.sleep(8)
+        # Reduced wait time for Chrome to start
+        time.sleep(3)  # Reduced from 8 seconds
         
         # Verify the process is still running
         if process.poll() is None:
@@ -175,13 +200,13 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
         return None, None
 
 def verify_chrome_debugging(debug_port):
-    """Verify that Chrome debugging is accessible"""
+    """Verify that Chrome debugging is accessible - FASTER VERSION"""
     print(f"🔍 Verifying Chrome debugging connection on port {debug_port}...")
     
-    max_retries = 15
+    max_retries = 8  # Reduced from 15
     for attempt in range(max_retries):
         try:
-            response = requests.get(f'http://127.0.0.1:{debug_port}/json', timeout=10)
+            response = requests.get(f'http://127.0.0.1:{debug_port}/json', timeout=3)  # Reduced timeout
             if response.status_code == 200:
                 tabs = response.json()
                 print(f"✅ Chrome debugging ready! Found {len(tabs)} tabs")
@@ -193,45 +218,18 @@ def verify_chrome_debugging(debug_port):
         
         if attempt < max_retries - 1:
             print(f"⏳ Attempt {attempt + 1}/{max_retries}, waiting...")
-            time.sleep(3)
+            time.sleep(1.5)  # Reduced wait time
     
     print(f"❌ Could not connect to Chrome debugging port {debug_port}")
     return False
 
-def verify_correct_account(debug_port):
-    """Verify that the correct account is active"""
-    print("🔍 Verifying account status...")
-    
-    try:
-        response = requests.get(f'http://127.0.0.1:{debug_port}/json', timeout=5)
-        if response.status_code == 200:
-            tabs = response.json()
-            
-            # Look for tabs that might indicate the account
-            for tab in tabs:
-                if 'linkedin.com' in tab.get('url', '').lower():
-                    print("✅ Found existing LinkedIn tab")
-                    return True
-                    
-            print("ℹ️ No LinkedIn tabs found, but Chrome is ready")
-            return True
-            
-    except Exception as e:
-        print(f"⚠️ Could not verify account: {e}")
-        
-    return True
-
 def setup_chrome_for_profile_one():
-    """Setup Chrome specifically for Profile 1 only"""
+    """Setup Chrome specifically for Profile 1 - SPEED OPTIMIZED"""
     print("🔧 LINKEDIN CHROME AUTOMATION SETUP - PROFILE 1 ONLY")
     print("=" * 60)
     
     # Step 1: Close only Profile 1 Chrome processes and conflicting debug ports
-    print("🔄 Closing Profile 1 Chrome processes and debug port conflicts...")
     close_profile_specific_chrome("Profile 1")
-    
-    # Wait a bit more to ensure everything is cleaned up
-    time.sleep(3)
     
     # Step 2: Start Chrome with Profile 1
     chrome_process, debug_port = start_chrome_with_specific_profile("Profile 1")
@@ -243,14 +241,7 @@ def setup_chrome_for_profile_one():
     # Step 3: Verify debugging works
     if verify_chrome_debugging(debug_port):
         print("✅ Chrome debugging is ready!")
-        
-        # Step 4: Verify correct account
-        if verify_correct_account(debug_port):
-            print("✅ Chrome Profile 1 is ready!")
-            return True, chrome_process, debug_port
-        else:
-            print("⚠️ Warning: Could not verify account, but proceeding...")
-            return True, chrome_process, debug_port
+        return True, chrome_process, debug_port
     else:
         print("❌ Chrome debugging setup failed")
         try:
@@ -259,52 +250,106 @@ def setup_chrome_for_profile_one():
             pass
         return False, None, None
 
-def create_linkedin_tab(debug_port):
-    """Connect to Chrome and create LinkedIn tab"""
+def create_linkedin_tab_fast(debug_port):
+    """Connect to Chrome and create LinkedIn tab - FIXED VERSION"""
+    print("🔗 Connecting to Chrome and opening LinkedIn...")
+    
+    # Less aggressive Chrome options
     chrome_options = Options()
     chrome_options.add_experimental_option("debuggerAddress", f"127.0.0.1:{debug_port}")
+    
+    # Keep only essential optimizations that don't break navigation
+    chrome_options.add_argument("--disable-images")  # Keep this for speed
+    chrome_options.add_argument("--disable-plugins")
+    # Remove CSS and JavaScript disabling - they can break navigation
     
     try:
         driver = webdriver.Chrome(options=chrome_options)
         
+        # Increase page load timeout and use different strategy
+        driver.set_page_load_timeout(30)  # Increased timeout
+        
         existing_tabs = driver.window_handles
         print(f"Found {len(existing_tabs)} existing tabs")
         
-        # Create new tab if needed
+        # Use existing tab or create new one
         if len(existing_tabs) == 0:
             driver.execute_script("window.open('');")
-        
-        # Use the first/current tab
-        driver.switch_to.window(driver.window_handles[0])
-        
-        # Navigate to LinkedIn feed
-        print("Opening LinkedIn feed...")
-        driver.get("https://www.linkedin.com/feed")
-        
-        # Wait for page to load
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
-        )
-        
-        print("✅ Successfully opened LinkedIn!")
-        print(f"Current URL: {driver.current_url}")
-        
-        # Check login status
-        time.sleep(5)
-        
-        if "feed" in driver.current_url and "linkedin.com" in driver.current_url:
-            print("✅ Successfully logged into LinkedIn feed!")
-        elif "login" in driver.current_url or "challenge" in driver.current_url:
-            print("⚠️ LinkedIn is asking for login - please log in manually")
+            driver.switch_to.window(driver.window_handles[0])
         else:
-            print(f"ℹ️ Current page: {driver.current_url}")
+            driver.switch_to.window(existing_tabs[0])
+        
+        # Try multiple navigation approaches
+        print("🚀 Opening LinkedIn feed...")
+        start_time = time.time()
+        
+        # Method 1: Direct navigation
+        try:
+            driver.get("https://www.linkedin.com/feed")
+            print("✅ Direct navigation successful")
+        except Exception as e:
+            print(f"⚠️ Direct navigation failed: {e}")
             
+            # Method 2: JavaScript navigation
+            try:
+                print("🔄 Trying JavaScript navigation...")
+                driver.execute_script("window.location.href = 'https://www.linkedin.com/feed';")
+                time.sleep(5)  # Wait for navigation
+            except Exception as e2:
+                print(f"⚠️ JavaScript navigation failed: {e2}")
+                
+                # Method 3: Step-by-step navigation
+                print("🔄 Trying step-by-step navigation...")
+                driver.get("https://www.linkedin.com")
+                time.sleep(3)
+                driver.get("https://www.linkedin.com/feed")
+        
+        # Wait for page to load properly
+        try:
+            # Wait for LinkedIn-specific elements
+            WebDriverWait(driver, 15).until(
+                EC.any_of(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "[data-test-id='feed-container']")),
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".feed-container")),
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".application-outlet")),
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".authentication-outlet")),
+                    EC.url_contains("linkedin.com")
+                )
+            )
+            print("✅ LinkedIn page elements detected")
+        except Exception as e:
+            print(f"⚠️ Couldn't detect LinkedIn elements: {e}")
+        
+        load_time = time.time() - start_time
+        current_url = driver.current_url
+        print(f"✅ Page loaded in {load_time:.2f} seconds!")
+        print(f"Current URL: {current_url}")
+        
+        # Better URL checking
+        if "linkedin.com" in current_url.lower():
+            if "feed" in current_url.lower():
+                print("✅ Successfully accessed LinkedIn feed!")
+            elif "login" in current_url.lower() or "challenge" in current_url.lower():
+                print("⚠️ LinkedIn requires login - please login manually")
+                print("   The page is ready for manual login")
+            else:
+                print(f"✅ On LinkedIn: {current_url}")
+        else:
+            print(f"❌ Navigation failed - still on: {current_url}")
+            print("🔄 Attempting one more navigation...")
+            try:
+                driver.execute_script("window.location.replace('https://www.linkedin.com/feed');")
+                time.sleep(5)
+                print(f"Final URL: {driver.current_url}")
+            except Exception as e:
+                print(f"Final attempt failed: {e}")
+        
         return driver
         
     except Exception as e:
         print(f"❌ Error connecting to Chrome: {e}")
         return None
-
+    
 def cleanup_temp_data(profile_dir="Profile 1"):
     """Clean up temporary user data directory"""
     user_data_dir = os.path.expanduser("~/.config/google-chrome")
@@ -314,15 +359,17 @@ def cleanup_temp_data(profile_dir="Profile 1"):
         if os.path.exists(temp_user_data):
             import shutil
             shutil.rmtree(temp_user_data)
-            print(f"✅ Cleaned up temporary data: {temp_user_data}")
+            print(f"✅ Cleaned up temporary data")
     except Exception as e:
         print(f"⚠️ Could not clean up temp data: {e}")
 
 def profile_login():
-    """Main execution flow - Profile 1 specific"""
-    print("🔥 LINKEDIN PROFILE 1 AUTOMATION")
+    """Main execution flow - Profile 1 specific - SPEED OPTIMIZED"""
+    print("🔥 FAST LINKEDIN PROFILE 1 AUTOMATION")
     print("Target Profile: Profile 1 ONLY")
     print("=" * 50)
+    
+    total_start_time = time.time()
     
     try:
         # Step 1: Setup Chrome with Profile 1 only
@@ -332,15 +379,14 @@ def profile_login():
             print("❌ Failed to setup Chrome Profile 1.")
             return None
         
-        print("\n🔗 Connecting with Selenium and creating LinkedIn tab...")
-        
-        # Step 2: Create LinkedIn tab in Profile 1
-        driver = create_linkedin_tab(debug_port)
+        # Step 2: Create LinkedIn tab fast
+        driver = create_linkedin_tab_fast(debug_port)
         
         if driver:
-            print("✅ LinkedIn automation is ready for Profile 1!")
-            print("✅ Driver ready for scraping operations")
-            return driver  # Return the driver for use in your scraper
+            total_time = time.time() - total_start_time
+            print(f"✅ LinkedIn automation ready in {total_time:.2f} seconds!")
+            print("✅ Driver ready for fast scraping operations")
+            return driver
             
         else:
             print("❌ Failed to create LinkedIn tab in Profile 1")
@@ -351,4 +397,9 @@ def profile_login():
         return None
 
 if __name__ == "__main__":
-    profile_login()
+    driver = profile_login()
+    if driver:
+        print("Driver ready for use!")
+        # Your scraping code can use the driver here
+    else:
+        print("Failed to setup driver")
