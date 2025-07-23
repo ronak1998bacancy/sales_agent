@@ -707,7 +707,7 @@ class LinkedInScraper:
         except Exception as e:
             logger.error(f"Error extracting name: {e}")
             # Continue processing even if name extraction fails
-        breakpoint()
+        
         # Extract experience information
         try:
             # Scroll and wait for experience section
