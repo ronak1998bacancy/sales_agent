@@ -5,6 +5,7 @@ import os
 from typing import Dict, List
 from datetime import datetime
 import logging
+import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -92,4 +93,7 @@ async def main():
     logger.info(f"[{datetime.now()}] Pipeline completed. Updated leads saved to {leads_file}")
 
 if __name__ == "__main__":
+    start_execution_time = time.time()
     asyncio.run(main())
+    end_execution_time = time.time()
+    logger.info(f"Total execution time for run full pipeline: {end_execution_time - start_execution_time:.2f} seconds")
