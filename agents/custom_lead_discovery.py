@@ -16,7 +16,7 @@ import datetime
 import logging
 from typing import Dict, List
 import random
-from agents.autoprofile_login import profile_login
+from agents.autoprofile_login import profile_login_with_email
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -26,9 +26,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 class LinkedInScraper:
-    def __init__(self, email, password, search_query="CEO", num_profiles=1):
-        self.email = email
-        self.password = password
+    def __init__(self, email, search_query="CEO", num_profiles=1):
+        self.email = email 
         self.search_query = search_query
         self.num_profiles = num_profiles 
         self.results = []
@@ -828,7 +827,7 @@ class LinkedInScraper:
         
     def main(self):
         """Main function to run the scraper"""
-        driver = profile_login()
+        driver = profile_login_with_email(self.email)
         if not driver:
             logger.debug("Failed to set up driver")
             return []
@@ -912,7 +911,6 @@ class CustomLeadDiscoveryAgent:
 
         scraper = LinkedInScraper(
             email=LINKEDIN_EMAIL,
-            password=LINKEDIN_PASSWORD,
             search_query=SEARCH_QUERY,
             num_profiles=NUM_PROFILES
         )
