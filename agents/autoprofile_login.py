@@ -505,7 +505,7 @@ def profile_login_with_email(email):
         
         if not success:
             print(f"❌ Failed to setup Chrome for email: {email}")
-            return None
+            return None, None
         
         # Step 2: Create LinkedIn tab
         driver = create_linkedin_tab_fast(debug_port)
@@ -514,15 +514,15 @@ def profile_login_with_email(email):
             total_time = time.time() - total_start_time
             print(f"✅ LinkedIn automation ready in {total_time:.2f} seconds!")
             print(f"✅ Driver ready for {email}'s profile")
-            return driver
+            return driver, chrome_process
             
         else:
             print(f"❌ Failed to create LinkedIn tab for {email}")
-            return None
+            return None, None
             
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
-        return None
+        return None, None
 
 if __name__ == "__main__":
     # OLD CODE:

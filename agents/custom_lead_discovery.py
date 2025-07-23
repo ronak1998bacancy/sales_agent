@@ -827,7 +827,7 @@ class LinkedInScraper:
         
     def main(self):
         """Main function to run the scraper"""
-        driver = profile_login_with_email(self.email)
+        driver, chrome_process = profile_login_with_email(self.email)
         if not driver:
             logger.debug("Failed to set up driver")
             return []
@@ -892,8 +892,9 @@ class LinkedInScraper:
             logger.debug(f"Unexpected error: {e}")
             return []
         finally:
-            # Always close the browser
+            # Always close the browser 
             driver.quit()
+            chrome_process.terminate()
             logger.debug("Browser closed")
 class CustomLeadDiscoveryAgent:
     name = "custom_lead_discovery"
@@ -925,7 +926,7 @@ class CustomLeadDiscoveryAgent:
 #     import asyncio
 #     state = {
 #         "search_query": "CTO",
-#         "num_profiles": 20
+#         "num_profiles": 1
 #     }
 #     agent = CustomLeadDiscoveryAgent()
 #     loop = asyncio.get_event_loop()
