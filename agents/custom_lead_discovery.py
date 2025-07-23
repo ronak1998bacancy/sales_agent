@@ -1008,4 +1008,4 @@ if __name__ == "__main__":
     start = time.time()
     results = loop.run_until_complete(agent.run(state))
     end = time.time()
-    print(f"Time taken: {end - start} seconds.")
+    print(f"Time taken: {end - start} seconds")
