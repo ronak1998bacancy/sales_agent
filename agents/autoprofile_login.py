@@ -363,33 +363,161 @@ def cleanup_temp_data(profile_dir="Profile 1"):
     except Exception as e:
         print(f"⚠️ Could not clean up temp data: {e}")
 
-def profile_login():
-    """Main execution flow - Profile 1 specific - SPEED OPTIMIZED"""
-    print("🔥 FAST LINKEDIN PROFILE 1 AUTOMATION")
-    print("Target Profile: Profile 1 ONLY")
+def get_chrome_profiles():
+    """Get all Chrome profiles and their associated email addresses"""
+    user_data_dir = os.path.expanduser("~/.config/google-chrome")
+    local_state_path = os.path.join(user_data_dir, "Local State")
+    
+    profiles = {}
+    
+    try:
+        if os.path.exists(local_state_path):
+            with open(local_state_path, 'r', encoding='utf-8') as f:
+                local_state = json.load(f)
+            
+            profile_info = local_state.get('profile', {}).get('info_cache', {})
+            
+            for profile_id, profile_data in profile_info.items():
+                profile_name = profile_data.get('name', 'Unknown')
+                
+                # Try to get email from preferences
+                pref_file = os.path.join(user_data_dir, profile_id, "Preferences")
+                email = "No email found"
+                
+                if os.path.exists(pref_file):
+                    try:
+                        with open(pref_file, 'r', encoding='utf-8') as f:
+                            prefs = json.load(f)
+                        
+                        # Try multiple paths to find email
+                        account_info = prefs.get('account_info', [])
+                        if account_info:
+                            email = account_info[0].get('email', 'No email')
+                        else:
+                            # Try other locations
+                            signin_info = prefs.get('signin', {})
+                            if signin_info:
+                                email = signin_info.get('AllowedUsername', 'No email')
+                    except:
+                        pass
+                
+                profiles[profile_id] = {
+                    'name': profile_name,
+                    'email': email,
+                    'path': os.path.join(user_data_dir, profile_id)
+                }
+    
+    except Exception as e:
+        print(f"Error reading Chrome profiles: {e}")
+    
+    return profiles
+
+def find_profile_by_email(email):
+    """Find Chrome profile directory by email address"""
+    print(f"🔍 Searching for profile with email: {email}")
+    
+    profiles = get_chrome_profiles()
+    
+    print("\n📋 Available Chrome Profiles:")
+    print("-" * 50)
+    for profile_id, info in profiles.items():
+        print(f"Profile: {profile_id}")
+        print(f"  Name: {info['name']}")
+        print(f"  Email: {info['email']}")
+        print(f"  Path: {info['path']}")
+        print()
+    
+    # Search for matching email
+    for profile_id, info in profiles.items():
+        if email.lower() in info['email'].lower():
+            print(f"✅ Found matching profile!")
+            print(f"   Profile ID: {profile_id}")
+            print(f"   Name: {info['name']}")
+            print(f"   Email: {info['email']}")
+            return profile_id
+    
+    print(f"❌ No profile found with email: {email}")
+    print("Available emails:")
+    for profile_id, info in profiles.items():
+        if info['email'] != "No email found":
+            print(f"  - {info['email']}")
+    
+    return None
+
+# MODIFY THESE EXISTING FUNCTIONS
+
+def start_chrome_with_email_profile(email):
+    """Start Chrome with profile found by email - MODIFIED VERSION"""
+    profile_id = find_profile_by_email(email)
+    
+    if not profile_id:
+        return None, None
+    
+    print(f"🚀 Starting Chrome with profile for: {email}")
+    
+    # Use the existing function but with dynamic profile
+    return start_chrome_with_specific_profile(profile_id)
+
+def setup_chrome_for_email(email):
+    """Setup Chrome for specific email - MODIFIED VERSION"""
+    print(f"🔧 LINKEDIN CHROME AUTOMATION SETUP - EMAIL: {email}")
+    print("=" * 60)
+    
+    # Find profile by email
+    profile_id = find_profile_by_email(email)
+    if not profile_id:
+        return False, None, None
+    
+    # Step 1: Close specific profile Chrome processes
+    close_profile_specific_chrome(profile_id)
+    
+    # Step 2: Start Chrome with found profile
+    chrome_process, debug_port = start_chrome_with_specific_profile(profile_id)
+    
+    if not chrome_process:
+        print(f"❌ Failed to start Chrome with profile for {email}")
+        return False, None, None
+    
+    # Step 3: Verify debugging works
+    if verify_chrome_debugging(debug_port):
+        print("✅ Chrome debugging is ready!")
+        return True, chrome_process, debug_port
+    else:
+        print("❌ Chrome debugging setup failed")
+        try:
+            chrome_process.terminate()
+        except:
+            pass
+        return False, None, None
+
+# MODIFY THE MAIN FUNCTION
+def profile_login_with_email(email):
+    """Main execution flow - Email-based profile selection"""
+    print("🔥 DYNAMIC LINKEDIN AUTOMATION")
+    print(f"Target Email: {email}")
     print("=" * 50)
     
     total_start_time = time.time()
     
     try:
-        # Step 1: Setup Chrome with Profile 1 only
-        success, chrome_process, debug_port = setup_chrome_for_profile_one()
+        # Step 1: Setup Chrome with email-based profile
+        success, chrome_process, debug_port = setup_chrome_for_email(email)
         
         if not success:
-            print("❌ Failed to setup Chrome Profile 1.")
+            print(f"❌ Failed to setup Chrome for email: {email}")
             return None
         
-        # Step 2: Create LinkedIn tab fast
+        # Step 2: Create LinkedIn tab
         driver = create_linkedin_tab_fast(debug_port)
         
         if driver:
             total_time = time.time() - total_start_time
             print(f"✅ LinkedIn automation ready in {total_time:.2f} seconds!")
-            print("✅ Driver ready for fast scraping operations")
+            print(f"✅ Driver ready for {email}'s profile")
             return driver
             
         else:
-            print("❌ Failed to create LinkedIn tab in Profile 1")
+            print(f"❌ Failed to create LinkedIn tab for {email}")
             return None
             
     except Exception as e:
@@ -397,9 +525,19 @@ def profile_login():
         return None
 
 if __name__ == "__main__":
-    driver = profile_login()
+    # OLD CODE:
+    # driver = profile_login()
+    
+    # NEW CODE:
+    email = input("Enter email address: ").strip()
+    
+    if not email:
+        print("❌ No email provided!")
+        exit(1)
+    
+    driver = profile_login_with_email(email)
     if driver:
-        print("Driver ready for use!")
+        print(f"Driver ready for {email}'s profile!")
         # Your scraping code can use the driver here
     else:
         print("Failed to setup driver")
