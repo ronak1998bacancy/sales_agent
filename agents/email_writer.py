@@ -142,7 +142,7 @@ class EmailWriterAgent:
                 }
 
             try:
-                with open(f"outputs/emails/{lead.get('profile_url', 'unknown').replace('/', '_')}.json", "w") as f:
+                with open(f"outputs/email/{lead.get('profile_url', 'unknown').replace('/', '_')}.json", "w") as f:
                     json.dump(lead["email_draft"], f, indent=2)
             except Exception as e:
                 logger.error(f"Error saving email draft: {e}", exc_info=True)
