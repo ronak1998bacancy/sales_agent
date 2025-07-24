@@ -61,17 +61,31 @@ class EmailWriterAgent:
                             </a>
                             """
             prompt = f"""
-            Write a professional, Indian-toned outreach email for lead: Name - {lead.get('name', 'Unknown')}, Role - {lead.get('role', 'Unknown')}, Company - {lead.get('company', 'Unknown')}, Location - {lead.get('location', 'Unknown')}
-            Context: Experience - {lead.get('experience', '')}, Company Domain - {lead.get('company_website', '')}
-            Personalize based on their experience and company domain, offering our AI services.
-            Create a 3-step sequence. Avoid outsourcing clichés.
-            Include signature: {signature}
-            
+            Write a professional, Indian-toned outreach email for the lead:
+            Name - {lead.get('name', 'Unknown')}, 
+            Role - {lead.get('role', 'Unknown')}, 
+            Company - {lead.get('company', 'Unknown')}, 
+            Location - {lead.get('location', 'Unknown')}.
+
+            Context:
+            Experience - {lead.get('experience', '')}, 
+            Company Domain - {lead.get('company_website', '')}
+
+            Personalize the email based on their experience and company domain, offering our AI services.
+
+            ✅ Format the email as ONE email with a 3-step value proposition clearly explained within the **body** (do not write 3 separate emails). Avoid outsourcing clichés.
+
+            Use a professional yet conversational tone.
+
+            Include this email signature at the end:
+            {signature}
+
             Output strictly in the following format:
+
             Subject: [Your subject here]
-            
-            Body: [Your email body here, including the 3-step sequence]
-            
+
+            Body: [Your email body here, including the 3-step value proposition]
+
             CTA: [Your call to action here]
             """
             try:
