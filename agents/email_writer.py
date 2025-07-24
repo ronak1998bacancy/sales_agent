@@ -107,10 +107,11 @@ class EmailWriterAgent:
             cta = cta_match.group(1).strip() if cta_match else "Default CTA"
             
             lead["email_draft"] = {
-                "subject": subject,
-                "body": body,
-                "cta": cta
-            }
+                                    "subject": subject,
+                                    "body": body + "<br><br>" + signature,
+                                    "cta": cta
+                                }
+
             try:
                 with open(f"outputs/emails/{lead.get('profile_url', 'unknown').replace('/', '_')}.json", "w") as f:
                     json.dump(lead["email_draft"], f, indent=2)
