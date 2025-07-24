@@ -26,11 +26,24 @@ class LeadEnricherAgent:
         print(f"[{datetime.datetime.now()}] Starting lead_enricher")
         leads = state.get("leads", [])
         for lead in leads:
-            company = lead.get("company", "unknown")  # Handle None or missing
-            company_domain = company.lower().replace(" ", "") + ".com"  # Simple domain guess
+            if lead.get("email"):
+                continue
+            if lead.get("company_website"):
+                company_domain = re.search(r"https?://(?:www\.)?([^/]+)", lead.get("company_website")).group(1)
+            else:
+                company_domain = None
+                print("Cannot found company link from scrapping.")
+            breakpoint()
             try:
+                name_list = lead.get('name', "").split(" ")
+                if name_list:
+                    first_name = name_list[0]
+                    last_name = name_list[1]
+                else : 
+                    first_name = ""
+                    last_name = ""
                 response = requests.get(
-                    f"https://api.hunter.io/v2/domain-search?domain={company_domain}&api_key={self.hunter_api_key}"
+                    f"https://api.hunter.io/v2/email-finder?domain={company_domain}&first_name={first_name}&last_name={last_name}&api_key={self.hunter_api_key}"
                 )
                 response.raise_for_status()  # Raise on bad status
                 data = response.json().get("data", {})
