@@ -983,7 +983,7 @@ class CustomLeadDiscoveryAgent:
         # Initialize scraper with credentials from .env
         LINKEDIN_EMAIL = os.getenv("LINKEDIN_EMAIL") 
         SEARCH_QUERY = state.get("search_query", "CTO")  # Default to CTO
-        NUM_PROFILES = state.get("num_profiles", 5)
+        NUM_PROFILES = state.get("num_profiles", 2)
 
         scraper = LinkedInScraper(
             email=LINKEDIN_EMAIL,
@@ -996,16 +996,16 @@ class CustomLeadDiscoveryAgent:
         return {"leads": results}
     
         
-if __name__ == "__main__":
-    # For testing purposes
-    import asyncio
-    state = {
-        "search_query": "AI CEO",
-        "num_profiles": 10
-    }
-    agent = CustomLeadDiscoveryAgent()
-    loop = asyncio.get_event_loop()
-    start = time.time()
-    results = loop.run_until_complete(agent.run(state))
-    end = time.time()
-    print(f"Time taken: {end - start} seconds")
+# if __name__ == "__main__":
+#     # For testing purposes
+#     import asyncio
+#     state = {
+#         "search_query": "AI CEO",
+#         "num_profiles": 10
+#     }
+#     agent = CustomLeadDiscoveryAgent()
+#     loop = asyncio.get_event_loop()
+#     start = time.time()
+#     results = loop.run_until_complete(agent.run(state))
+#     end = time.time()
+#     print(f"Time taken: {end - start} seconds")

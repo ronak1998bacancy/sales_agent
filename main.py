@@ -32,9 +32,9 @@ async def main():
     # Initial state
     state: Dict = {
         "leads": [],  # Will be populated by discovery or load
-        "search_query": "AI CEO",  # Example query for discovery
+        "search_query": "AI Developer",  # Example query for discovery
         "organization_name": "Bacancy",
-        "user_name": "John Doe",
+        "user_name": "Ronak Patel",
         "company_email": "ronak.h.patel@bacancy.com",
         "company_website": "https://www.bacancytechnology.com/",
         "company_linkedin": "https://www.linkedin.com/company/bacancy-technology/ ",
@@ -49,7 +49,6 @@ async def main():
     outreach_executor = OutreachExecutorAgent()
     email_reviewer = EmailReviewerAgent()
     proposal_generator = ProposalGeneratorAgent()
-    # Removed follow_up instantiation as functionality is merged into email_reviewer
     calendar_manager = CalendarManagerAgent()
     reporter = ReporterAgent()
 
