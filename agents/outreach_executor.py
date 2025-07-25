@@ -7,7 +7,6 @@ import os
 import datetime
 import time
 import logging  # Added logging
-
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,7 +27,17 @@ class OutreachExecutorAgent:
             if "email_draft" in lead and "email_sent" not in lead:  # Skip if already sent
                 to_email = lead.get("email", "lead@example.com")
                 draft = lead.get("email_draft", {})
-                msg = MIMEText(draft.get("body", "") + "\n\n" + draft.get("cta", ""))  # Use .get
+                # msg = MIMEText(draft.get("body", "") + "<br><br>" + draft.get("cta", ""), _subtype="html")
+                html_content = f"""
+                                <html>
+                                <body>
+                                    {draft.get("body", "")}<br>
+                                    {draft.get("cta", "")}
+                                </body>
+                                </html>
+                                """
+                msg = MIMEText(html_content, _subtype="html")
+
                 msg["Subject"] = draft.get("subject", "Default Subject")
                 msg["From"] = os.getenv("SMTP_USER")
                 msg["To"] = to_email
