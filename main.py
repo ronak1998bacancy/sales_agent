@@ -30,7 +30,9 @@ class AgentState(TypedDict, total=False):
     company_website: str
     company_linkedin: str
     company_logo: str
+    num_profiles: int
     email_reviews: List[dict]
+
 
 # Initialize all agents
 custom_lead_discovery = CustomLeadDiscoveryAgent()
@@ -114,6 +116,7 @@ builder.add_node("report", run_reporter)
 builder.add_node("enrich", run_lead_enricher)
 builder.add_node("write_email", run_email_writer)
 builder.add_node("execute_outreach", run_outreach_executor)
+builder.add_node("reporter", run_reporter)
 
 # Langgraph edges
 builder.add_conditional_edges("load", check_leads_exist, {
@@ -127,7 +130,8 @@ builder.add_edge("report", "lead_discovery")
 builder.add_edge("lead_discovery", "enrich")
 builder.add_edge("enrich", "write_email")
 builder.add_edge("write_email", "execute_outreach")
-builder.add_edge("execute_outreach", END)
+builder.add_edge("execute_outreach", "reporter")
+builder.add_edge("reporter", END)
 
 # compile graph
 graph = builder.compile()
@@ -142,6 +146,7 @@ async def main():
         "company_website": "https://www.bacancytechnology.com/",
         "company_linkedin": "https://www.linkedin.com/company/bacancy-technology/",
         "company_logo": "https://assets.bacancytechnology.com/main-boot-5/images/bacancy-logo-white.svg",
+        "num_profiles": 1,
         "email_reviews": []
     }
     start_time = datetime.now()
