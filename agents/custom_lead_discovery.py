@@ -26,11 +26,22 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 class LinkedInScraper:
-    def __init__(self, email, search_query="CEO", num_profiles=1):
+    def __init__(self, email, search_query="CEO", num_profiles=1, buffer_multiplier=2.0, max_additional_searches=5):
         self.email = email 
         self.search_query = search_query
         self.num_profiles = num_profiles 
+        # Increase buffer multiplier for larger requests
+        self.buffer_multiplier = max(buffer_multiplier, 1.5 if num_profiles <= 10 else 2.0)
+        # Increase max searches for larger requests  
+        self.max_additional_searches = max(max_additional_searches, num_profiles // 5)
         self.results = []
+
+    def is_valid_profile(self, profile_data):
+        """Check if profile meets minimum requirements (name, role, company_url)"""
+        return (profile_data and 
+                profile_data.get('name') and 
+                profile_data.get('company_url') and 
+                profile_data.get('role'))
 
     def setup_driver(self):
         """Set up Chrome driver with proper configuration"""
@@ -213,7 +224,7 @@ class LinkedInScraper:
         """Extract only profile URLs from search results - detailed data will be extracted from individual profiles"""
         profile_urls = []
         
-        for i, result in enumerate(search_results[:self.num_profiles]):
+        for i, result in enumerate(search_results):
             try:
                 logger.debug(f"Processing result {i+1}...")
                 
@@ -264,7 +275,64 @@ class LinkedInScraper:
                 continue
         
         return profile_urls
- 
+
+    def search_for_additional_profiles(self, driver, existing_urls, needed_count):
+        """Search for additional profiles when we need more valid ones"""
+        logger.debug(f"Searching for {needed_count} additional profiles...")
+        
+        try:
+            # Scroll down to load more results or go to next page
+            current_url = driver.current_url
+            
+            # Try scrolling first
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(random.uniform(2, 4))
+            
+            # Look for "Next" button or load more results
+            next_selectors = [
+                "button[aria-label='Next']",
+                ".artdeco-pagination__button--next",
+                "a[aria-label='Next']"
+            ]
+            
+            for selector in next_selectors:
+                try:
+                    next_button = self.safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=3)
+                    if next_button and next_button.is_enabled():
+                        logger.debug("Found Next button, clicking...")
+                        next_button.click()
+                        time.sleep(random.uniform(2, 4))
+                        break
+                except:
+                    continue
+            
+            # Extract new results
+            search_results_selectors = [".search-results-container li"]
+            
+            new_results = []
+            for selector in search_results_selectors:
+                try:
+                    search_results = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=10)
+                    if search_results:
+                        new_results = search_results
+                        logger.debug(f"Found {len(new_results)} additional results")
+                        break
+                except:
+                    continue
+            
+            if new_results:
+                new_urls = self.extract_profile_urls_from_search_results(driver, new_results)
+                # Filter out URLs we already have
+                additional_urls = [url for url in new_urls if url not in existing_urls]
+                logger.debug(f"Found {len(additional_urls)} new unique URLs")
+                return additional_urls[:needed_count * 2]  # Get extra in case some are invalid
+            
+            return []
+            
+        except Exception as e:
+            logger.debug(f"Error searching for additional profiles: {e}")
+            return []
+
     def extract_company_website(self, driver):
         """Extract company website from company page"""
         try:
@@ -445,15 +513,15 @@ class LinkedInScraper:
             return {}
         
     def search_for_ctos(self, driver):
-        """Search for CTOs on LinkedIn"""
-        logger.debug(f"Searching for {self.num_profiles} CTO profiles...")
+        """Search for CTOs on LinkedIn with proper pagination support"""
+        logger.debug(f"Searching for {self.num_profiles} profiles...")
         
         try:
             # Navigate directly to LinkedIn search page with query
             search_url = f"https://www.linkedin.com/search/results/people/?keywords={self.search_query.replace(' ', '%20')}"
             logger.debug(f"Navigating to: {search_url}")
             driver.get(search_url)
-            # time.sleep(2)
+            
             try:
                 WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, ".search-results-container, .reusable-search__result-container"))
@@ -518,7 +586,6 @@ class LinkedInScraper:
                     logger.debug("Still not on search results page")
                     return []
             
-            
             # Ensure we're on People results tab
             logger.debug("Looking for People filter...")
             people_filter_found = False
@@ -561,7 +628,7 @@ class LinkedInScraper:
                             break
                 except:
                     continue
- 
+
             if not people_filter_found:
                 logger.debug("Could not find People filter, checking if already on people results...")
                 # Check if we're already on people results
@@ -581,86 +648,134 @@ class LinkedInScraper:
                         logger.debug("People search results did not load after fallback navigation.")
                     logger.debug(f"Navigated directly to people search: {people_url}")
             
-            # Wait a bit more for results to load
-            # time.sleep(2)
+            # NEW: Multi-page scraping logic
+            all_profile_urls = []
+            page_count = 0
+            max_pages = 10  # Safety limit
+            target_urls_needed = int(self.num_profiles * self.buffer_multiplier)
             
-            # Look for search results with multiple selector strategies
-            logger.debug("Looking for search results...")
-            search_results = []
+            logger.debug(f"Target URLs needed: {target_urls_needed}")
             
-            # Try different selectors for search results
-            search_results_selectors = [ 
-                ".search-results-container li"
-            ]
-            
-            for selector in search_results_selectors:
-                try:
-                    search_results = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=10)
-                    if search_results and len(search_results) > 0:
-                        logger.debug(f"Found {len(search_results)} results using selector: {selector}")
-                        break
-                except:
-                    continue
-             
-
-            # If no results found, try scrolling and waiting
-            if not search_results:
-                logger.debug("No results found, trying to scroll and wait...")
-                try:
-                    driver.execute_script("window.scrollTo(0, 1000);")
-                    time.sleep(random.uniform(2, 5))  # Added random delay
-                    WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, ".search-results-container li, .reusable-search__result-container"))
-                    )
-                except TimeoutException:
-                    logger.debug("Search results did not load after scroll.")
+            while len(all_profile_urls) < target_urls_needed and page_count < max_pages:
+                page_count += 1
+                logger.debug(f"Processing page {page_count}...")
+                
+                # Wait a bit for page content to load
+                time.sleep(random.uniform(2, 4))
+                
+                # Get search results from current page
+                search_results = []
+                search_results_selectors = [".search-results-container li"]
                 
                 for selector in search_results_selectors:
                     try:
-                        search_results = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=5)
+                        search_results = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=10)
                         if search_results and len(search_results) > 0:
-                            logger.debug(f"Found {len(search_results)} results after scroll using selector: {selector}")
+                            logger.debug(f"Found {len(search_results)} results on page {page_count}")
                             break
-                    except Exception as e:
-                        logger.error(f"Error finding elements: {e}")
+                    except:
                         continue
+                
+                # If no results found, try scrolling and waiting
+                if not search_results:
+                    logger.debug("No results found, trying to scroll and wait...")
+                    try:
+                        driver.execute_script("window.scrollTo(0, 1000);")
+                        time.sleep(random.uniform(2, 5))
+                        WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, ".search-results-container li, .reusable-search__result-container"))
+                        )
+                    except TimeoutException:
+                        logger.debug("Search results did not load after scroll.")
+                    
+                    for selector in search_results_selectors:
+                        try:
+                            search_results = self.safe_find_elements(driver, By.CSS_SELECTOR, selector, timeout=5)
+                            if search_results and len(search_results) > 0:
+                                logger.debug(f"Found {len(search_results)} results after scroll on page {page_count}")
+                                break
+                        except Exception as e:
+                            continue
+                
+                if not search_results:
+                    logger.debug(f"No search results found on page {page_count}")
+                    break
+                
+                # Extract URLs from current page
+                page_urls = self.extract_profile_urls_from_search_results(driver, search_results)
+                
+                # Add new URLs (avoid duplicates)
+                new_urls = [url for url in page_urls if url not in all_profile_urls]
+                all_profile_urls.extend(new_urls)
+                
+                logger.debug(f"Page {page_count}: Found {len(page_urls)} URLs, {len(new_urls)} new URLs")
+                logger.debug(f"Total URLs collected: {len(all_profile_urls)}/{target_urls_needed}")
+                
+                # Check if we have enough URLs
+                if len(all_profile_urls) >= target_urls_needed:
+                    logger.debug(f"Collected enough URLs ({len(all_profile_urls)}) - stopping pagination")
+                    break
+                
+                # Try to go to next page
+                next_page_found = False
+                
+                # First, scroll to bottom to ensure pagination buttons are visible
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)
+                
+                # Try different next button selectors
+                next_button_selectors = [
+                    "button[aria-label='Next']",
+                    ".artdeco-pagination__button--next",
+                    "a[aria-label='Next']",
+                    ".artdeco-pagination__button.artdeco-pagination__button--next",
+                    "button.artdeco-pagination__button.artdeco-pagination__button--next:not([disabled])"
+                ]
+                
+                for selector in next_button_selectors:
+                    try:
+                        next_button = self.safe_find_element(driver, By.CSS_SELECTOR, selector, timeout=5)
+                        if next_button and next_button.is_enabled() and next_button.is_displayed():
+                            # Check if button is not disabled
+                            if "disabled" not in next_button.get_attribute("class") and next_button.get_attribute("disabled") != "true":
+                                logger.debug(f"Found enabled Next button with selector: {selector}")
+                                
+                                # Scroll to button and click
+                                driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                                time.sleep(1)
+                                
+                                try:
+                                    next_button.click()
+                                    logger.debug("Successfully clicked Next button")
+                                except:
+                                    # Try JavaScript click as backup
+                                    driver.execute_script("arguments[0].click();", next_button)
+                                    logger.debug("Successfully clicked Next button via JavaScript")
+                                
+                                # Wait for new page to load
+                                time.sleep(random.uniform(3, 5))
+                                
+                                # Verify we moved to next page by checking URL or content change
+                                new_url = driver.current_url
+                                if "start=" in new_url or len(driver.find_elements(By.CSS_SELECTOR, ".search-results-container li")) > 0:
+                                    next_page_found = True
+                                    logger.debug(f"Successfully moved to next page: {new_url}")
+                                    break
+                    except Exception as e:
+                        logger.debug(f"Error with next button selector {selector}: {e}")
+                        continue
+                
+                if not next_page_found:
+                    logger.debug("No more pages available or Next button not found")
+                    break
             
-            if not search_results:
-                logger.debug("No search results found with any selector")
-                logger.debug(f"Current URL: {driver.current_url}")
-                logger.debug(f"Page title: {driver.title}")
-                return []
-            
-            logger.debug(f"Found {len(search_results)} total results")
-             
-            # Filter for CTO results - be more flexible with filtering
-            valid_results = search_results
-            # cto_keywords = ["CTO", "Chief Technology Officer", "Chief Technical Officer", "Technology Officer", "Tech Officer"]
-            
-            # for result in search_results:
-            #     try:
-            #         result_text = result.text.strip().upper()
-            #         if result_text and any(keyword.upper() in result_text for keyword in cto_keywords):
-            #             valid_results.append(result)
-            #             if len(valid_results) >= self.num_profiles:
-            #                 break
-            #     except:
-            #         continue
-            
-            # logger.debug(f"Found {len(valid_results)} valid CTO results")
-            
-            if valid_results:
-                return self.extract_profile_urls_from_search_results(driver, valid_results)
-            else:
-                logger.debug("No valid CTO results found")
-                # Return first few results anyway for debugging
-                logger.debug("Returning first few results for debugging...")
-                return self.extract_profile_urls_from_search_results(driver, search_results[:self.num_profiles])
+            logger.debug(f"Pagination complete. Collected {len(all_profile_urls)} URLs across {page_count} pages")
+            return all_profile_urls
             
         except Exception as e:
             logger.debug(f"Search failed: {str(e)}")
             return []
-        
+      
     def extract_full_profile_data(self, driver, profile_url):
         """Navigate to individual profile and extract complete data"""
         profile_data = {
@@ -877,85 +992,147 @@ class LinkedInScraper:
         return profile_data
 
     def main(self):
-        """Main function to run the scraper"""
+        """Main function to run the scraper with enhanced large-scale support"""
         driver, chrome_process = profile_login_with_email(self.email)
         if not driver:
             logger.debug("Failed to set up driver")
             return []
         
         try:  
-            # Get profile URLs from search results
+            # Get profile URLs from search results (now with pagination)
             start = time.time()
             profile_urls = self.search_for_ctos(driver)
             
             end = time.time()
-            logger.debug(f"Time taken to search for CTOs: {end - start} seconds")
+            logger.debug(f"Time taken to search with pagination: {end - start} seconds")
             
             if not profile_urls:
                 logger.debug("No profiles found")
                 return []
             
-            logger.debug(f"\nFound {len(profile_urls)} profile URLs")
+            logger.debug(f"\nFound {len(profile_urls)} profile URLs across multiple pages")
             
-            # Extract detailed data from each profile - WITH ERROR HANDLING
-            profile_data_list = []
-            successful_profiles = 0
-            failed_profiles = 0
+            # Enhanced processing for large requests
+            valid_profiles = []
+            profile_urls_index = 0
+            additional_search_attempts = 0
+            all_processed_urls = set()
             
-            for i, profile_url in enumerate(profile_urls, 1):
-                try:
-                    logger.debug(f"\nProcessing profile {i}/{len(profile_urls)}: {profile_url}") 
-                    
-                    profile_data = self.extract_full_profile_data(driver, profile_url)
-                    
-                    if profile_data and profile_data.get("name"):  # At least check if we got a name
-                        profile_data_list.append(profile_data)
-                        successful_profiles += 1
-                        logger.debug(f"✅ Successfully processed profile {i}")
+            logger.debug(f"Target: {self.num_profiles} valid profiles")
+            
+            # Process URLs in batches for better performance
+            batch_size = 5 if self.num_profiles >= 20 else 3
+            processed_in_batch = 0
+            
+            while len(valid_profiles) < self.num_profiles:
+                # Check if we have more URLs to process
+                if profile_urls_index >= len(profile_urls):
+                    if additional_search_attempts < self.max_additional_searches:
+                        logger.debug(f"\nNeed {self.num_profiles - len(valid_profiles)} more valid profiles")
+                        logger.debug(f"Attempting additional search #{additional_search_attempts + 1}")
+                        
+                        # For large requests, search for more profiles more aggressively
+                        needed_count = (self.num_profiles - len(valid_profiles)) * 2
+                        additional_urls = self.search_for_additional_profiles(driver, list(all_processed_urls), needed_count)
+                        
+                        if additional_urls:
+                            profile_urls.extend(additional_urls)
+                            logger.debug(f"Added {len(additional_urls)} new URLs to process")
+                        else:
+                            logger.debug("No additional URLs found")
+                        
+                        additional_search_attempts += 1
                     else:
-                        failed_profiles += 1
-                        logger.debug(f"❌ Failed to extract meaningful data from profile {i}")
+                        logger.debug(f"Reached maximum additional search attempts ({self.max_additional_searches})")
+                        break
+                
+                # If we have URLs to process
+                if profile_urls_index < len(profile_urls):
+                    current_url = profile_urls[profile_urls_index]
                     
-                    time.sleep(random.uniform(1.0, 2.0))  # Be polite with delays
+                    # Skip if already processed
+                    if current_url in all_processed_urls:
+                        profile_urls_index += 1
+                        continue
                     
-                except Exception as e:
-                    failed_profiles += 1
-                    logger.error(f"❌ Error processing profile {i} ({profile_url}): {e}")
-                    # Continue to next profile instead of stopping
-                    continue
+                    try:
+                        logger.debug(f"\nProcessing profile {profile_urls_index + 1}/{len(profile_urls)}: {current_url}")
+                        logger.debug(f"Valid profiles so far: {len(valid_profiles)}/{self.num_profiles}")
+                        
+                        profile_data = self.extract_full_profile_data(driver, current_url)
+                        all_processed_urls.add(current_url)
+                        processed_in_batch += 1
+                        
+                        # Check if profile meets our criteria
+                        if self.is_valid_profile(profile_data):
+                            valid_profiles.append(profile_data)
+                            logger.debug(f"✅ Valid profile found! Total valid: {len(valid_profiles)}")
+                            logger.debug(f"   Name: {profile_data.get('name')}")
+                            logger.debug(f"   Role: {profile_data.get('role')}")
+                            logger.debug(f"   Company: {profile_data.get('company')}")
+                        else:
+                            logger.debug(f"❌ Profile doesn't meet criteria")
+                        
+                        profile_urls_index += 1
+                        
+                        # Add longer delays for large batches to avoid rate limiting
+                        delay = random.uniform(1.0, 2.0)
+                        if self.num_profiles >= 20:
+                            delay = random.uniform(2.0, 4.0)
+                        elif processed_in_batch >= batch_size:
+                            delay = random.uniform(3.0, 6.0)  # Longer break after batch
+                            processed_in_batch = 0
+                            logger.debug(f"Batch complete, taking a longer break ({delay:.1f}s)")
+                        
+                        time.sleep(delay)
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Error processing profile {profile_urls_index + 1} ({current_url}): {e}")
+                        all_processed_urls.add(current_url)
+                        profile_urls_index += 1
+                        continue
+                else:
+                    # No more URLs and no more search attempts
+                    break
             
-            logger.debug(f"\n📊 Processing Summary:")
-            logger.debug(f"   ✅ Successful: {successful_profiles}")
-            logger.debug(f"   ❌ Failed: {failed_profiles}")
-            logger.debug(f"   📋 Total processed: {len(profile_urls)}")
+            # Enhanced summary for large requests
+            logger.debug(f"\n📊 Final Processing Summary:")
+            logger.debug(f"   🎯 Target profiles: {self.num_profiles}")
+            logger.debug(f"   ✅ Valid profiles found: {len(valid_profiles)}")
+            logger.debug(f"   🔍 Total URLs processed: {len(all_processed_urls)}")
+            logger.debug(f"   📄 Total URLs collected: {len(profile_urls)}")
+            logger.debug(f"   🔄 Additional searches: {additional_search_attempts}")
+            logger.debug(f"   📈 Success rate: {len(valid_profiles)}/{len(all_processed_urls)} ({len(valid_profiles)/max(len(all_processed_urls), 1)*100:.1f}%)")
             
-            # More flexible filtering - keep profiles with at least name and one other field
-            filtered_profiles = []
-            for item in profile_data_list:
-                if item.get('name') and (item.get('company') or item.get('role')):
-                    filtered_profiles.append(item)
-            
-            logger.debug(f"📋 Profiles with meaningful data: {len(filtered_profiles)}")
-
-            if not filtered_profiles:
-                logger.debug("No valid profiles found with meaningful data")
+            if len(valid_profiles) < self.num_profiles:
+                shortage = self.num_profiles - len(valid_profiles)
+                logger.debug(f"⚠️  Warning: {shortage} profiles short of target")
+                if shortage > self.num_profiles * 0.3:  # More than 30% short
+                    logger.debug("💡 Suggestions:")
+                    logger.debug("   - Try a broader search query")
+                    logger.debug("   - Increase buffer_multiplier")
+                    logger.debug("   - Check if LinkedIn has enough results for your query")
             else:
+                logger.debug(f"🎉 Successfully found all {self.num_profiles} requested valid profiles!")
+            
+            # Display results
+            if valid_profiles:
                 logger.debug("\n" + "="*60)
                 logger.debug("SCRAPING RESULTS:")
                 logger.debug("="*60)
                 
-                for i, result in enumerate(filtered_profiles, 1):
+                for i, result in enumerate(valid_profiles, 1):
                     logger.debug(f"\nProfile {i}:")
-                    logger.debug(f"name: {result.get('name', 'N/A')}")
-                    logger.debug(f"role: {result.get('role', 'N/A')}")
-                    logger.debug(f"company: {result.get('company', 'N/A')}")
-                    logger.debug(f"location: {result.get('location', 'N/A')}")
-                    logger.debug(f"profile_url: {result.get('profile_url', 'N/A')}")
-                    logger.debug(f"company_url: {result.get('company_url', 'N/A')}")
-                    logger.debug(f"company_website: {result.get('company_website', 'N/A')}")
+                    logger.debug(f"Name: {result.get('name', 'N/A')}")
+                    logger.debug(f"Role: {result.get('role', 'N/A')}")
+                    logger.debug(f"Company: {result.get('company', 'N/A')}")
+                    logger.debug(f"Location: {result.get('location', 'N/A')}")
+                    logger.debug(f"Profile URL: {result.get('profile_url', 'N/A')}")
+                    logger.debug(f"Company URL: {result.get('company_url', 'N/A')}")
+                    logger.debug(f"Company Website: {result.get('company_website', 'N/A')}")
                     logger.debug("-" * 50)
             
-            return filtered_profiles
+            return valid_profiles
         
         except KeyboardInterrupt:
             logger.debug("\nScraping interrupted by user")
@@ -971,7 +1148,6 @@ class LinkedInScraper:
                 logger.debug("Browser closed")
             except Exception as e:
                 logger.error(f"Error closing browser: {e}")
-
 class CustomLeadDiscoveryAgent:
     name = "custom_lead_discovery"
     description = "Custom lead discovery from LinkedIn CEO/CTO search"
