@@ -151,7 +151,7 @@ async def main():
         "reporting_email" : "ronak.h.patel@bacancy.com",
         "company_website": "https://www.bacancytechnology.com/",
         "company_linkedin": "https://www.linkedin.com/company/bacancy-technology/",
-        "company_logo": "https://assets.bacancytechnology.com/main-boot-5/images/bacancy-logo-white.svg",
+        "company_logo": "logo.png",
         "num_profiles": 2,
         "email_reviews": []
     }
