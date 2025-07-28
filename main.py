@@ -19,6 +19,7 @@ from agents.email_reviewer import EmailReviewerAgent
 from agents.proposal_generator import ProposalGeneratorAgent
 from agents.calendar_manager import CalendarManagerAgent
 from agents.reporter import ReporterAgent
+from agents.meeting_reporter import MeetingReporter
 
 # Define langgraph state
 class AgentState(TypedDict, total=False):
@@ -43,6 +44,7 @@ email_reviewer = EmailReviewerAgent()
 proposal_generator = ProposalGeneratorAgent()
 calendar_manager = CalendarManagerAgent()
 reporter = ReporterAgent()
+meeting_reporter = MeetingReporter()
 
 leads_file = "outputs/final_leads.json"
 
@@ -102,6 +104,9 @@ async def run_outreach_executor(state: AgentState) -> AgentState:
     logger.info(f"[{datetime.now()}] pipeline completed, leads saved to {leads_file}")
     return result
 
+async def run_report_of_meeting(state: AgentState) -> AgentState:
+    return await meeting_reporter.run(state)
+
 # Building LangGraph
 builder = StateGraph(AgentState)
 
@@ -117,16 +122,16 @@ builder.add_node("enrich", run_lead_enricher)
 builder.add_node("write_email", run_email_writer)
 builder.add_node("execute_outreach", run_outreach_executor)
 builder.add_node("reporter", run_reporter)
+builder.add_node("meeting_reporter", run_report_of_meeting)
 
 # Langgraph edges
 builder.add_conditional_edges("load", check_leads_exist, {
     "review_pipeline": "email_review",
     "discovery_pipeline": "lead_discovery"
 })
-builder.add_edge("email_review", "proposal")
-builder.add_edge("proposal", "calendar")
-builder.add_edge("calendar", "report")
-builder.add_edge("report", "lead_discovery") 
+builder.add_edge("email_review", "calendar") 
+builder.add_edge("calendar", "meeting_reporter")
+builder.add_edge("meeting_reporter", "lead_discovery") 
 builder.add_edge("lead_discovery", "enrich")
 builder.add_edge("enrich", "write_email")
 builder.add_edge("write_email", "execute_outreach")
@@ -146,7 +151,7 @@ async def main():
         "company_website": "https://www.bacancytechnology.com/",
         "company_linkedin": "https://www.linkedin.com/company/bacancy-technology/",
         "company_logo": "https://assets.bacancytechnology.com/main-boot-5/images/bacancy-logo-white.svg",
-        "num_profiles": 1,
+        "num_profiles": 2,
         "email_reviews": []
     }
     start_time = datetime.now()

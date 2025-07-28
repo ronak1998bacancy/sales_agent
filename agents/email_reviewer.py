@@ -226,7 +226,11 @@ class EmailReviewerAgent:
 
                     # Send follow-up based on interest
                     if interest_json.get("interest") == "interested":
-                        follow_up_body = "Thank you for your interest. Let's proceed."
+                        follow_up_body = (
+                            "Thank you for your interest. We're pleased to proceed further. "
+                            "Your meeting has been scheduled as per your preferred time, and you can find the meeting link in your calendar. "
+                            "Looking forward to connecting with you."
+                        )
                     elif interest_json.get("interest") == "not_interested":
                         follow_up_body = "Noted, thank you."
                     else:
