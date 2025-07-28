@@ -145,6 +145,7 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
         f'--remote-debugging-port={debug_port}',
         f'--user-data-dir={temp_user_data}',
         f'--profile-directory={profile_dir}',
+        '--headless=new',
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
@@ -259,6 +260,7 @@ def create_linkedin_tab_fast(debug_port):
     chrome_options.add_experimental_option("debuggerAddress", f"127.0.0.1:{debug_port}")
     
     # Keep only essential optimizations that don't break navigation
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-images")  # Keep this for speed
     chrome_options.add_argument("--disable-plugins")
     # Remove CSS and JavaScript disabling - they can break navigation
