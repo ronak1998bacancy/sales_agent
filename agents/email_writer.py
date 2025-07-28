@@ -43,7 +43,7 @@ class EmailWriterAgent:
         company_email = state.get("company_email", "sales@company.com")
         company_website = state.get("company_website", "https://yourcompany.com")
         company_linkedin = state.get("company_linkedin", "https://linkedin.com/company/yourcompany")
-        company_logo = "https://assets.bacancytechnology.com/main-boot-5/images/bacancy-logo-white.svg"  # URL or base64
+        company_logo = state.get("company_logo", "https://assets.bacancytechnology.com/main-boot-5/images/bacancy-logo-white.svg")  # Use base64 from state if available
         logo_src = company_logo
         if logo_src.startswith('http'):  # URL: use as-is (may not load)
             pass
@@ -85,19 +85,19 @@ class EmailWriterAgent:
 
             Now, generate for this lead:
 
-            subject: [8-12 words: Benefit-focused, personalized, e.g., 'Exploring AI Possibilities for {lead.get('company', 'your company')}' – clear and engaging]
+            subject: [8-12 words: Benefit-focused, personalized, e.g., 'Exploring AI Possibilities for {lead.get('company', 'your company')}' - clear and engaging]
 
-            body: [HTML formatted:
+            body: [HTML formatted:  
             <p>Hi {lead.get('name', 'there').split()[0] if lead.get('name') else 'there'},</p>
             <p>I hope you're doing well.</p>
-            <p>I’m {user_name} from {org_name}. I came across the exciting work you're doing at {lead.get('company', 'your company')}, especially in [brief mention of industry/domain from website {lead.get('company_website', '')} or role {lead.get('role', 'Unknown')}]. It caught my attention because it aligns with some of the AI-led transformations we’re helping companies implement across similar domains.</p>
-            <p>At {org_name}, we’re enabling businesses to unlock value through custom AI solutions — with a focus on real outcomes, not buzzwords. Here’s how we typically add value:</p>
+            <p>I'm {user_name} from {org_name}. I came across the exciting work you're doing at {lead.get('company', 'your company')}, especially in [brief mention of industry/domain from website {lead.get('company_website', '')} or role {lead.get('role', 'Unknown')}]. It caught my attention because it aligns with some of the AI-led transformations we're helping companies implement across similar domains.</p>
+            <p>At {org_name}, we're enabling businesses to unlock value through custom AI solutions — with a focus on real outcomes, not buzzwords. Here's how we typically add value:</p>
             <ul>
             <li><strong>Enhance User Experience</strong>: [Benefit tied to lead, e.g., 'We build AI-driven personalization layers that improve user engagement and retention for {lead.get('company', 'your company')}'s apps.']</li>
             <li><strong>Boost Operational Efficiency</strong>: [Benefit, e.g., 'From automating internal workflows to improving QA/testing cycles, our AI tools streamline {lead.get('role', 'your team')}'s day-to-day.']</li>
             <li><strong>Enable Smarter Decisions</strong>: [Benefit, e.g., 'We help {lead.get('company', 'your company')} make data-backed decisions with intelligent analytics and forecasting models.']</li>
             </ul>
-            <p>[Wrap-up: 1-2 sentences, e.g., 'If any of these areas resonate with what you’re working on, I’d love to exchange ideas or explore if there’s a fit.']</p>
+            <p>[Wrap-up: 1-2 sentences, e.g., 'If any of these areas resonate with what you're working on, I'd love to exchange ideas or explore if there's a fit.']</p>
             <p>[CTA: 1-2 sentences: Non-pushy, e.g., 'Would you be open to a short call sometime next week to discuss where AI might make the biggest impact for {lead.get('company', 'your company')}?']</p>]
 
             Lead Details:
@@ -138,7 +138,7 @@ class EmailWriterAgent:
                 logger.error(f"Error generating or parsing email: {e}", exc_info=True)
                 lead["email_draft"] = {
                     "subject": f"Exploring AI for {lead.get('company', 'your company')}",
-                    "body": f"<p>Hi {lead.get('name', 'there').split()[0] if lead.get('name') else 'there'},</p><p>I hope you're doing well.</p><p>I’m {user_name} from {org_name}. Let’s discuss AI opportunities.</p><p>Would you be open to a call?</p>" + signature
+                    "body": f"<p>Hi {lead.get('name', 'there').split()[0] if lead.get('name') else 'there'},</p><p>I hope you're doing well.</p><p>I'm {user_name} from {org_name}. Let's discuss AI opportunities.</p><p>Would you be open to a call?</p>" + signature
                 }
 
             try:

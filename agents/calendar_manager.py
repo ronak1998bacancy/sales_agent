@@ -183,6 +183,7 @@ class CalendarManagerAgent:
             event = self.service.events().insert(
                 calendarId='primary',
                 body=event,
+                sendUpdates='all',
                 conferenceDataVersion=1
             ).execute()
             return event
