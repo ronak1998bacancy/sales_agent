@@ -148,6 +148,7 @@ async def main():
         "organization_name": "Bacancy",
         "user_name": "Dipak Bundheliya",
         "company_email": "dipak.bundheliya@bacancy.com",
+        "reporting_email" : "ronak.h.patel@bacancy.com",
         "company_website": "https://www.bacancytechnology.com/",
         "company_linkedin": "https://www.linkedin.com/company/bacancy-technology/",
         "company_logo": "https://assets.bacancytechnology.com/main-boot-5/images/bacancy-logo-white.svg",
