@@ -51,7 +51,7 @@ REPORT_EMAIL_ID=your.manager@example.com
 # DeepSeek API key to classify replies
 DEEPSEEK_API_KEY=your_deepseek_api_key
 
-# Google credentials (OAuth) and token
+# Google credentials (OAuth) and token, you need to setup google cloud console account, OAuth authentication and create Desktop app for use calender api
 GOOGLE_OAUTH_CREDENTIALS_PATH=credentials.json
 
 # SMTP details to send emails
