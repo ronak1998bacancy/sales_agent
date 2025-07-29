@@ -102,9 +102,6 @@ async def run_outreach_executor(state: AgentState) -> AgentState:
     logger.info(f"[{datetime.now()}] pipeline completed, leads saved to {leads_file}")
     return result
 
-async def run_report_of_meeting(state: AgentState) -> AgentState:
-    return await meeting_reporter.run(state)
-
 # Building LangGraph
 builder = StateGraph(AgentState)
 
