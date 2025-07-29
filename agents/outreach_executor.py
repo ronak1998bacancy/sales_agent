@@ -19,6 +19,7 @@ class OutreachExecutorAgent:
     description = "Executes outreach by sending emails with delays"
     input_schema = {"leads": List[Dict]}
     output_schema = {"leads": List[Dict]}  # Update same leads list
+    email_sent = 0
 
     async def run(self, state):
         print(f"[{datetime.datetime.now()}] Starting outreach_executor")  # Kept print for consistency
@@ -46,11 +47,14 @@ class OutreachExecutorAgent:
                         server.starttls()
                         server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
                         server.send_message(msg)
+                        email_sent+=1
                     logger.info(f"Email sent to {to_email} for lead {lead.get('profile_url', 'unknown')}")
                     lead["email_sent"] = True
                     lead["email_sent_time"] = datetime.datetime.now().isoformat()
                     time.sleep(5)  # Delay for sequencing
                 except Exception as e:
                     logger.error(f"Error sending email to {to_email}: {e}", exc_info=True)
-        print(f"[{datetime.datetime.now()}] Completed outreach_executor: Emails sent for {len(leads)} leads")
+                    
+        new_emails = [lead for lead in leads if not lead.get("email_sent", False)]
+        print(f"[{datetime.datetime.now()}] Completed outreach_executor: Emails sent for {new_emails} leads")
         return {"leads": leads}

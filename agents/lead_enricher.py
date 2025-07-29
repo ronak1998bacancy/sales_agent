@@ -49,5 +49,8 @@ class LeadEnricherAgent:
                 logger.error(f"Error enriching lead with Hunter.io: {e}", exc_info=True)
                 email = "pitaji.injala@gmail.com"  # Changed fallback to generic
             lead["email"] = email
-        print(f"[{datetime.datetime.now()}] Completed lead_enricher: {len(leads)} leads enriched")
+
+        # Print information about newly generated emails (those without email_sent flag)
+        new_emails = [lead for lead in leads if not lead.get("email_sent", False)]
+        print(f"[{datetime.datetime.now()}] Completed lead_enricher: {len(new_emails)} leads enriched")
         return {"leads": leads}
