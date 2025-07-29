@@ -46,6 +46,8 @@ class CalendarManagerAgent:
                     try:
                         creds.refresh(Request())
                         logger.info("Refreshed existing token")
+                        with open(self.token_path, 'w') as token:  # Save again
+                            token.write(creds.to_json())
                     except Exception as e:
                         logger.warning(f"Failed to refresh token: {str(e)}. Initiating new authentication.")
                         creds = None

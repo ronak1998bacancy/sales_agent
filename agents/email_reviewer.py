@@ -89,6 +89,8 @@ class EmailReviewerAgent:
             else:
                 if creds.expired and creds.refresh_token:
                     creds.refresh(Request())
+                    with open(self.token_path, 'w') as token:  # Save again
+                            token.write(creds.to_json())
             service = build('gmail', 'v1', credentials=creds)
             service.users().getProfile(userId="me").execute()
             logger.info("Gmail API initialized with full scopes.")
@@ -223,31 +225,6 @@ class EmailReviewerAgent:
                         logger.info(f"Saved replied JSON at {replied_path}")
                     except Exception as e:
                         logger.error(f"Error saving replied JSON: {e}", exc_info=True)
-
-                    # Send follow-up based on interest
-                    if interest_json.get("interest") == "interested":
-                        follow_up_body = (
-                            "Thank you for your interest. We're pleased to proceed further. "
-                            "Your meeting has been scheduled as per your preferred time, and you can find the meeting link in your calendar. "
-                            "Looking forward to connecting with you."
-                        )
-                    elif interest_json.get("interest") == "not_interested":
-                        follow_up_body = "Noted, thank you."
-                    else:
-                        follow_up_body = "Clarifying your response."
-                    to_email = lead_email
-                    msg = MIMEText(follow_up_body)
-                    msg["Subject"] = f"Re: {subject}"
-                    msg["From"] = os.getenv("SMTP_USER")
-                    msg["To"] = to_email
-                    try:
-                        with smtplib.SMTP(os.getenv("SMTP_HOST"), 587) as server:
-                            server.starttls()
-                            server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
-                            server.send_message(msg)
-                        logger.info(f"Sent follow-up to {to_email}")
-                    except Exception as e:
-                        logger.error(f"Error sending follow-up: {e}", exc_info=True)
 
                     # Mark as read
                     try:

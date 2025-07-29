@@ -137,10 +137,10 @@ graph = builder.compile()
 # Run
 async def main():
     state: AgentState = {
-        "search_query": "AI CEO",
+        "search_query": "AI Director",
         "organization_name": "Bacancy",
-        "user_name": "Dipak Bundheliya",
-        "company_email": "dipak.bundheliya@bacancy.com",
+        "user_name": "Ronak Patel",
+        "company_email": "ronak.h.patel@bacancy.com",
         "reporting_email" : "ronak.h.patel@bacancy.com",
         "company_website": "https://www.bacancytechnology.com/",
         "company_linkedin": "https://www.linkedin.com/company/bacancy-technology/",

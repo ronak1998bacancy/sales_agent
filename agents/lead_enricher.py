@@ -40,9 +40,11 @@ class LeadEnricherAgent:
                 response = requests.get(
                     f"https://api.hunter.io/v2/email-finder?domain={company_website}&first_name={first_name}&last_name={last_name}&api_key={self.hunter_api_key}"
                 )
-                response.raise_for_status()  # Raise on bad status
                 data = response.json().get("data", {})
-                email = data.get("emails", [{}])[0].get("value", "unknown@example.com")
+                if response.status_code != 200:
+                    email = "pitaji.injala@gmail.com"
+                else:
+                    email = data.get("emails", [{}])[0].get("value", "unknown@example.com")
             except requests.RequestException as e:
                 logger.error(f"Error enriching lead with Hunter.io: {e}", exc_info=True)
                 email = "pitaji.injala@gmail.com"  # Changed fallback to generic
