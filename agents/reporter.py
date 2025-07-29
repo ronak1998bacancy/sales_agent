@@ -34,8 +34,8 @@ class ReporterAgent:
         """
         msg = MIMEText(summary)
         msg["Subject"] = f"Daily Sales Pipeline Report - {organization_name}"
-        msg["From"] = f"{user_name} <sales@{organization_name.lower().replace(' ', '')}.com>"
-        msg["To"] = os.getenv("REPORT_EMAIL_ID")
+        msg["From"] = state.get("company_email", "salesperson@bacancy.com")
+        msg["To"] = state.get("reporting_email", "salesmanager@bacancy.com") # reporting_email
 
         try:
             with smtplib.SMTP(os.getenv("SMTP_HOST"), 587) as server:
