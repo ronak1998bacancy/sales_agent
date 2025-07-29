@@ -137,7 +137,7 @@ graph = builder.compile()
 # Run
 async def main():
     state: AgentState = {
-        "search_query": "AI Director",
+        "search_query": "AI CEO",
         "organization_name": "Bacancy",
         "user_name": "Ronak Patel",
         "company_email": "ronak.h.patel@bacancy.com",

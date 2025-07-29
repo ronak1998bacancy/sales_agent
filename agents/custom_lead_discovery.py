@@ -58,7 +58,7 @@ class LinkedInScraper:
         chrome_options.add_argument("--allow-running-insecure-content")
         
         # Enable headless mode
-        # chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--headless=new")
         
         try:
             # Use webdriver-manager to automatically download and manage ChromeDriver
