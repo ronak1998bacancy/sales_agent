@@ -96,7 +96,11 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
     print(f"🚀 Starting Chrome with {profile_dir} profile...")
 
     # Default Chrome user data directory
-    user_data_dir = os.path.expanduser("~/.config/google-chrome")
+    # user_data_dir = os.path.expanduser("~/.config/google-chrome")
+    if os.name == "nt":
+        user_data_dir = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data")
+    else:
+        user_data_dir = os.path.expanduser("~/.config/google-chrome")
     
     # Verify profile exists
     profile_path = os.path.join(user_data_dir, profile_dir)
@@ -139,13 +143,27 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
     
     print(f"✅ Copied essential profile files to temporary location")
     
+    # Get the appropriate Chrome executable based on OS
+    if os.name == "nt":
+        chrome_paths = [
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
+        ]
+        chrome_exe = next((path for path in chrome_paths if os.path.exists(path)), None)
+        if not chrome_exe:
+            print("❌ Chrome executable not found in common locations")
+            return None, None
+    else:
+        chrome_exe = 'google-chrome-stable'
+    
     # Optimized Chrome flags for speed
     chrome_command = [
-        'google-chrome-stable',
+        chrome_exe,
         f'--remote-debugging-port={debug_port}',
         f'--user-data-dir={temp_user_data}',
         f'--profile-directory={profile_dir}',
-        '--headless=new',
+        # '--headless=new',
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
@@ -176,18 +194,26 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
     ]
 
     try:
-        # Start Chrome in background
-        process = subprocess.Popen(
-            chrome_command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            preexec_fn=os.setsid
-        )
+        # Start Chrome in background with OS-specific process group handling
+        if os.name == "nt":
+            # Windows: use creationflags
+            process = subprocess.Popen(
+                chrome_command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:
+            # Linux/macOS: use preexec_fn
+            process = subprocess.Popen(
+                chrome_command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                preexec_fn=os.setsid
+            )
         print(f"✅ Chrome started with profile '{profile_dir}' on port {debug_port} - PID: {process.pid}")
-        
         # Reduced wait time for Chrome to start
         time.sleep(3)  # Reduced from 8 seconds
-        
         # Verify the process is still running
         if process.poll() is None:
             print("✅ Chrome process is running")
@@ -195,7 +221,6 @@ def start_chrome_with_specific_profile(profile_dir="Profile 1"):
         else:
             print("❌ Chrome process exited unexpectedly")
             return None, None
-        
     except Exception as e:
         print(f"❌ Error starting Chrome: {e}")
         return None, None
@@ -354,7 +379,10 @@ def create_linkedin_tab_fast(debug_port):
     
 def cleanup_temp_data(profile_dir="Profile 1"):
     """Clean up temporary user data directory"""
-    user_data_dir = os.path.expanduser("~/.config/google-chrome")
+    if os.name == "nt":
+        user_data_dir = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data")
+    else:
+        user_data_dir = os.path.expanduser("~/.config/google-chrome")
     temp_user_data = f"{user_data_dir}_temp_{profile_dir.replace(' ', '_')}"
     
     try:
@@ -367,7 +395,11 @@ def cleanup_temp_data(profile_dir="Profile 1"):
 
 def get_chrome_profiles():
     """Get all Chrome profiles and their associated email addresses"""
-    user_data_dir = os.path.expanduser("~/.config/google-chrome")
+    # user_data_dir = os.path.expanduser("~/.config/google-chrome")
+    if os.name == "nt":
+        user_data_dir = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data")
+    else:
+        user_data_dir = os.path.expanduser("~/.config/google-chrome")
     local_state_path = os.path.join(user_data_dir, "Local State")
     
     profiles = {}
