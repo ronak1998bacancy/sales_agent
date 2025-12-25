@@ -146,5 +146,12 @@ class EmailWriterAgent:
                     json.dump(lead["email_draft"], f, indent=2)
             except Exception as e:
                 logger.error(f"Error saving email draft: {e}", exc_info=True)
-        print(f"[{datetime.datetime.now()}] Completed email_writer: Emails generated for {len(leads)} leads")
+        
+        # Print information about newly generated emails (those without email_sent flag)
+        new_emails = [lead for lead in leads if not lead.get("email_sent", False)]
+        print(f"[{datetime.datetime.now()}] Completed email_writer: Emails generated for {len(new_emails)} new leads")
+        
+        # Optional: Print details of each new email for debugging
+        # for i, lead in enumerate(new_emails):
+        #     print(f"  {i+1}. Email for: {lead.get('name', 'Unknown')} at {lead.get('company', 'Unknown')}")
         return {"leads": leads}

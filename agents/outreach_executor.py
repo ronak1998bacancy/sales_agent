@@ -23,6 +23,8 @@ class OutreachExecutorAgent:
     async def run(self, state):
         print(f"[{datetime.datetime.now()}] Starting outreach_executor")  # Kept print for consistency
         leads = state.get("leads", [])  # Use .get to avoid KeyError
+        email_sent = 0
+
         for lead in leads:
             if "email_draft" in lead and "email_sent" not in lead:  # Skip if already sent
                 to_email = lead.get("email", "lead@example.com")
@@ -46,11 +48,13 @@ class OutreachExecutorAgent:
                         server.starttls()
                         server.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASSWORD"))
                         server.send_message(msg)
+                        email_sent+=1
                     logger.info(f"Email sent to {to_email} for lead {lead.get('profile_url', 'unknown')}")
                     lead["email_sent"] = True
                     lead["email_sent_time"] = datetime.datetime.now().isoformat()
                     time.sleep(5)  # Delay for sequencing
                 except Exception as e:
                     logger.error(f"Error sending email to {to_email}: {e}", exc_info=True)
-        print(f"[{datetime.datetime.now()}] Completed outreach_executor: Emails sent for {len(leads)} leads")
+                     
+        print(f"[{datetime.datetime.now()}] Completed outreach_executor: Emails sent for {email_sent} leads")
         return {"leads": leads}
