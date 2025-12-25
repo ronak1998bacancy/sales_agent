@@ -19,11 +19,12 @@ class OutreachExecutorAgent:
     description = "Executes outreach by sending emails with delays"
     input_schema = {"leads": List[Dict]}
     output_schema = {"leads": List[Dict]}  # Update same leads list
-    email_sent = 0
 
     async def run(self, state):
         print(f"[{datetime.datetime.now()}] Starting outreach_executor")  # Kept print for consistency
         leads = state.get("leads", [])  # Use .get to avoid KeyError
+        email_sent = 0
+
         for lead in leads:
             if "email_draft" in lead and "email_sent" not in lead:  # Skip if already sent
                 to_email = lead.get("email", "lead@example.com")
@@ -54,7 +55,6 @@ class OutreachExecutorAgent:
                     time.sleep(5)  # Delay for sequencing
                 except Exception as e:
                     logger.error(f"Error sending email to {to_email}: {e}", exc_info=True)
-                    
-        new_emails = [lead for lead in leads if not lead.get("email_sent", False)]
-        print(f"[{datetime.datetime.now()}] Completed outreach_executor: Emails sent for {new_emails} leads")
+                     
+        print(f"[{datetime.datetime.now()}] Completed outreach_executor: Emails sent for {email_sent} leads")
         return {"leads": leads}

@@ -24,4 +24,7 @@ __pycache__
 *.tmp
 *.bak
 *.swp
+*.md
 agent_env
+dummy.py
+dummy.txt  
